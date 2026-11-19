@@ -1,0 +1,22 @@
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    MLFLOW_DISABLE_AGENT_HINT=1 \
+    TOKENIZERS_PARALLELISM=false
+
+WORKDIR /workspace
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements-ml.txt .
+RUN pip install --no-cache-dir -r requirements-ml.txt
+
+# Pre-cache the pinned MiniLM checkpoint inside the image for deterministic container runs
+RUN python -c "from transformers import AutoTokenizer, AutoModel; rev='1110a243fdf4706b3f48f1d95db1a4f5529b4d41'; AutoTokenizer.from_pretrained('sentence-transformers/all-MiniLM-L6-v2', revision=rev); AutoModel.from_pretrained('sentence-transformers/all-MiniLM-L6-v2', revision=rev)"
+
+COPY . .
+
+CMD ["python", "-m", "ml.run_pipeline", "--force"]

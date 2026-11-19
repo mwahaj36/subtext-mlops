@@ -1,0 +1,328 @@
+{
+  "registered_at_utc": "2026-11-19T18:57:49.475681+00:00",
+  "tracking_uri": "https://dagshub.com/mwahaj36/subtext-mlops.mlflow",
+  "selection_rule": {
+    "primary_metric": "val_macro_f1",
+    "tie_breaker": "val_micro_f1"
+  },
+  "comparison": {
+    "baseline": {
+      "run_id": "8a2bd18153c94978b98b644e08e12b39",
+      "model_type": "tfidf_ovr_logreg",
+      "completed_utc": "2026-11-19T18:50:53.151085+00:00",
+      "val_macro_f1": 0.809,
+      "val_micro_f1": 0.8091,
+      "val_subset_accuracy": 0.3276,
+      "val_ece": 0.018,
+      "val_uncalibrated_ece": 0.117,
+      "reg_macro_f1": 0.7827,
+      "reg_micro_f1": 0.775,
+      "reg_subset_accuracy": 0.3333,
+      "reg_ece": 0.0232,
+      "extraction_micro_f1": 0.9872
+    },
+    "primary": {
+      "run_id": "01b02fc1496548f8b5bd4beb36e6cb99",
+      "model_type": "minilm_multilabel",
+      "completed_utc": "2026-11-19T18:53:13.108584+00:00",
+      "val_macro_f1": 0.877,
+      "val_micro_f1": 0.8727,
+      "val_subset_accuracy": 0.4483,
+      "val_ece": 0.0287,
+      "val_uncalibrated_ece": 0.0282,
+      "reg_macro_f1": 0.8183,
+      "reg_micro_f1": 0.7896,
+      "reg_subset_accuracy": 0.2727,
+      "reg_ece": 0.0299,
+      "extraction_micro_f1": 0.9872
+    }
+  },
+  "selected_model": {
+    "model_type": "minilm_multilabel",
+    "source_run_id": "01b02fc1496548f8b5bd4beb36e6cb99",
+    "registered_model_name": "subtext-intent-multilabel",
+    "registered_version": "2",
+    "registered_model_uri": "models:/subtext-intent-multilabel/2",
+    "local_pyfunc_path": "artifacts/registry/pyfunc_model",
+    "bundle_fingerprint": "4fb663cb67dcc1f0",
+    "reused_existing_version": false,
+    "label_order": [
+      "affective_outcome",
+      "affective_tone",
+      "sensory_visual",
+      "sensory_pacing",
+      "person_actor",
+      "person_director",
+      "similarity_plot",
+      "similarity_vibe",
+      "attribute_genre",
+      "attribute_era",
+      "attribute_language_country",
+      "negation_genre",
+      "negation_content",
+      "thematic_plot"
+    ],
+    "thresholds": {
+      "affective_outcome": 0.6,
+      "affective_tone": 0.36,
+      "sensory_visual": 0.22,
+      "sensory_pacing": 0.38,
+      "person_actor": 0.5,
+      "person_director": 0.5,
+      "similarity_plot": 0.5,
+      "similarity_vibe": 0.78,
+      "attribute_genre": 0.5,
+      "attribute_era": 0.5,
+      "attribute_language_country": 0.5,
+      "negation_genre": 0.56,
+      "negation_content": 0.24,
+      "thematic_plot": 0.46
+    },
+    "temperatures": {
+      "affective_outcome": 1.0031,
+      "affective_tone": 1.2177,
+      "sensory_visual": 1.0302,
+      "sensory_pacing": 0.8923,
+      "person_actor": 0.25,
+      "person_director": 0.25,
+      "similarity_plot": 1.234,
+      "similarity_vibe": 0.6809,
+      "attribute_genre": 1.014,
+      "attribute_era": 0.25,
+      "attribute_language_country": 0.25,
+      "negation_genre": 0.7405,
+      "negation_content": 0.3942,
+      "thematic_plot": 1.854
+    }
+  },
+  "fresh_process_reload_verified": true,
+  "fresh_process_sample_predictions": [
+    {
+      "request_id": "req_ee3b545fcc22",
+      "schema_version": "1.0.0",
+      "taxonomy_version": "1.0.0",
+      "route_policy_version": "1.0.0",
+      "model_id": "minilm_multilabel",
+      "model_version": "e1da451731a0",
+      "predicted_fine_labels": [
+        "person_actor",
+        "attribute_genre",
+        "attribute_language_country",
+        "negation_content"
+      ],
+      "predicted_broad_labels": [
+        "attribute",
+        "negation",
+        "person"
+      ],
+      "is_compound": true,
+      "label_scores": {
+        "affective_outcome": 0.0026,
+        "affective_tone": 0.0294,
+        "sensory_visual": 0.0114,
+        "sensory_pacing": 0.0153,
+        "person_actor": 1.0,
+        "person_director": 0.0,
+        "similarity_plot": 0.0497,
+        "similarity_vibe": 0.0001,
+        "attribute_genre": 0.9907,
+        "attribute_era": 0.0,
+        "attribute_language_country": 1.0,
+        "negation_genre": 0.0036,
+        "negation_content": 0.9996,
+        "thematic_plot": 0.0225
+      },
+      "applied_thresholds": {
+        "affective_outcome": 0.6,
+        "affective_tone": 0.36,
+        "sensory_visual": 0.22,
+        "sensory_pacing": 0.38,
+        "person_actor": 0.5,
+        "person_director": 0.5,
+        "similarity_plot": 0.5,
+        "similarity_vibe": 0.78,
+        "attribute_genre": 0.5,
+        "attribute_era": 0.5,
+        "attribute_language_country": 0.5,
+        "negation_genre": 0.56,
+        "negation_content": 0.24,
+        "thematic_plot": 0.46
+      },
+      "extraction": {
+        "actors": [
+          "Song Kang-ho"
+        ],
+        "directors": [],
+        "genres": [
+          "Crime",
+          "Thriller"
+        ],
+        "year_min": null,
+        "year_max": null,
+        "language": "ko",
+        "excluded_genres": [],
+        "excluded_terms": [
+          "gore"
+        ],
+        "reference_titles": []
+      },
+      "selected_route": "structured_filter",
+      "route_reason": "Explicit entity, metadata, or negation constraints matched",
+      "llm_fallback": {
+        "called": false,
+        "status": "not_called",
+        "reason": "D1 offline small-model execution"
+      },
+      "input_query": "Korean crime thriller starring Song Kang-ho with no gore"
+    },
+    {
+      "request_id": "req_d978f41856a5",
+      "schema_version": "1.0.0",
+      "taxonomy_version": "1.0.0",
+      "route_policy_version": "1.0.0",
+      "model_id": "minilm_multilabel",
+      "model_version": "e1da451731a0",
+      "predicted_fine_labels": [
+        "affective_tone",
+        "sensory_visual",
+        "similarity_vibe"
+      ],
+      "predicted_broad_labels": [
+        "affective",
+        "sensory",
+        "similarity"
+      ],
+      "is_compound": true,
+      "label_scores": {
+        "affective_outcome": 0.0036,
+        "affective_tone": 0.8188,
+        "sensory_visual": 0.9899,
+        "sensory_pacing": 0.0167,
+        "person_actor": 0.0,
+        "person_director": 0.0,
+        "similarity_plot": 0.0373,
+        "similarity_vibe": 0.9999,
+        "attribute_genre": 0.0061,
+        "attribute_era": 0.0,
+        "attribute_language_country": 0.017,
+        "negation_genre": 0.0004,
+        "negation_content": 0.0053,
+        "thematic_plot": 0.0376
+      },
+      "applied_thresholds": {
+        "affective_outcome": 0.6,
+        "affective_tone": 0.36,
+        "sensory_visual": 0.22,
+        "sensory_pacing": 0.38,
+        "person_actor": 0.5,
+        "person_director": 0.5,
+        "similarity_plot": 0.5,
+        "similarity_vibe": 0.78,
+        "attribute_genre": 0.5,
+        "attribute_era": 0.5,
+        "attribute_language_country": 0.5,
+        "negation_genre": 0.56,
+        "negation_content": 0.24,
+        "thematic_plot": 0.46
+      },
+      "extraction": {
+        "actors": [],
+        "directors": [],
+        "genres": [],
+        "year_min": null,
+        "year_max": null,
+        "language": null,
+        "excluded_genres": [],
+        "excluded_terms": [],
+        "reference_titles": [
+          "Lost in Translation"
+        ]
+      },
+      "selected_route": "similarity_anchor",
+      "route_reason": "Reference title or similarity intent matched",
+      "llm_fallback": {
+        "called": false,
+        "status": "not_called",
+        "reason": "D1 offline small-model execution"
+      },
+      "input_query": "Lonely late-night Tokyo neon atmosphere like Lost in Translation"
+    },
+    {
+      "request_id": "req_8aee40120b3d",
+      "schema_version": "1.0.0",
+      "taxonomy_version": "1.0.0",
+      "route_policy_version": "1.0.0",
+      "model_id": "minilm_multilabel",
+      "model_version": "e1da451731a0",
+      "predicted_fine_labels": [
+        "affective_outcome",
+        "person_director",
+        "attribute_genre",
+        "attribute_era",
+        "attribute_language_country"
+      ],
+      "predicted_broad_labels": [
+        "affective",
+        "attribute",
+        "person"
+      ],
+      "is_compound": true,
+      "label_scores": {
+        "affective_outcome": 0.9057,
+        "affective_tone": 0.0177,
+        "sensory_visual": 0.0154,
+        "sensory_pacing": 0.0041,
+        "person_actor": 0.0,
+        "person_director": 1.0,
+        "similarity_plot": 0.0087,
+        "similarity_vibe": 0.0005,
+        "attribute_genre": 0.9806,
+        "attribute_era": 1.0,
+        "attribute_language_country": 0.9669,
+        "negation_genre": 0.0043,
+        "negation_content": 0.0,
+        "thematic_plot": 0.0316
+      },
+      "applied_thresholds": {
+        "affective_outcome": 0.6,
+        "affective_tone": 0.36,
+        "sensory_visual": 0.22,
+        "sensory_pacing": 0.38,
+        "person_actor": 0.5,
+        "person_director": 0.5,
+        "similarity_plot": 0.5,
+        "similarity_vibe": 0.78,
+        "attribute_genre": 0.5,
+        "attribute_era": 0.5,
+        "attribute_language_country": 0.5,
+        "negation_genre": 0.56,
+        "negation_content": 0.24,
+        "thematic_plot": 0.46
+      },
+      "extraction": {
+        "actors": [],
+        "directors": [
+          "Hayao Miyazaki"
+        ],
+        "genres": [
+          "Animation",
+          "Fantasy"
+        ],
+        "year_min": 1990,
+        "year_max": 1999,
+        "language": null,
+        "excluded_genres": [],
+        "excluded_terms": [],
+        "reference_titles": []
+      },
+      "selected_route": "structured_filter",
+      "route_reason": "Explicit entity, metadata, or negation constraints matched",
+      "llm_fallback": {
+        "called": false,
+        "status": "not_called",
+        "reason": "D1 offline small-model execution"
+      },
+      "input_query": "90s animated fantasy directed by Hayao Miyazaki to soothe my mood"
+    }
+  ]
+}

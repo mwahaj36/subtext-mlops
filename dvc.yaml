@@ -1,0 +1,80 @@
+stages:
+  split_and_validate:
+    cmd: python -m ml.split --config configs/train.yaml
+    deps:
+      - data/raw/d1_queries.jsonl
+      - data/manifests/dataset_provenance.json
+      - configs/taxonomy.yaml
+      - configs/train.yaml
+      - schemas/dataset_record.schema.json
+      - schemas/extraction.schema.json
+      - ml/split.py
+      - ml/validate.py
+    outs:
+      - data/processed/train.jsonl
+      - data/processed/val.jsonl
+      - data/processed/course_regression.jsonl
+      - data/manifests/split_manifest.json:
+          cache: false
+      - data/manifests/validation_report.json:
+          cache: false
+
+  train_baseline:
+    cmd: python -m ml.train_baseline --config configs/train.yaml
+    deps:
+      - data/processed/train.jsonl
+      - data/processed/val.jsonl
+      - data/processed/course_regression.jsonl
+      - data/manifests/split_manifest.json
+      - configs/taxonomy.yaml
+      - configs/train.yaml
+      - ml/train_baseline.py
+      - ml/evaluate.py
+      - ml/extract.py
+    outs:
+      - artifacts/baseline/baseline_bundle.joblib
+    metrics:
+      - artifacts/baseline/metrics.json:
+          cache: false
+
+  train_primary:
+    cmd: python -m ml.train --config configs/train.yaml
+    deps:
+      - data/processed/train.jsonl
+      - data/processed/val.jsonl
+      - data/processed/course_regression.jsonl
+      - data/manifests/split_manifest.json
+      - artifacts/baseline/metrics.json
+      - configs/taxonomy.yaml
+      - configs/train.yaml
+      - ml/train.py
+      - ml/evaluate.py
+      - ml/extract.py
+    outs:
+      - artifacts/primary/encoder
+      - artifacts/primary/head.pt
+      - artifacts/primary/bundle_manifest.json:
+          cache: false
+    metrics:
+      - artifacts/primary/metrics.json:
+          cache: false
+
+  register_model:
+    cmd: python -m ml.register --config configs/train.yaml
+    deps:
+      - artifacts/baseline/metrics.json
+      - artifacts/baseline/baseline_bundle.joblib
+      - artifacts/primary/metrics.json
+      - artifacts/primary/bundle_manifest.json
+      - artifacts/primary/encoder
+      - artifacts/primary/head.pt
+      - configs/taxonomy.yaml
+      - configs/routing.yaml
+      - configs/train.yaml
+      - schemas/prediction_contract.schema.json
+      - ml/register.py
+    outs:
+      - artifacts/registry/pyfunc_model
+    metrics:
+      - artifacts/registry/registration_summary.json:
+          cache: false
