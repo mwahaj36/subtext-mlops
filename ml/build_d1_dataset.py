@@ -394,7 +394,7 @@ def build_dataset() -> tuple[list[dict[str, Any]], dict[str, Any]]:
 
     raw_path = REPO_ROOT / "data" / "raw" / "d1_queries.jsonl"
     raw_path.parent.mkdir(parents=True, exist_ok=True)
-    raw_path.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in records), encoding="utf-8")
+    raw_path.write_bytes("".join(json.dumps(r, ensure_ascii=False) + "\r\n" for r in records).encode("utf-8"))
     raw_sha = sha256_file(raw_path)
 
     provenance = {
