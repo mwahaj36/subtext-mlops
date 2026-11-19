@@ -1,0 +1,142 @@
+{
+  "status": "passed",
+  "raw": {
+    "total_records": 455,
+    "unique_groups": 219,
+    "label_counts": {
+      "affective_outcome": 76,
+      "affective_tone": 79,
+      "sensory_visual": 84,
+      "sensory_pacing": 73,
+      "person_actor": 68,
+      "person_director": 64,
+      "similarity_plot": 63,
+      "similarity_vibe": 65,
+      "attribute_genre": 210,
+      "attribute_era": 86,
+      "attribute_language_country": 88,
+      "negation_genre": 72,
+      "negation_content": 81,
+      "thematic_plot": 89
+    },
+    "multi_label_histogram": {
+      "1": 6,
+      "2": 167,
+      "3": 270,
+      "4": 12
+    },
+    "query_char_length": {
+      "min": 22,
+      "max": 115,
+      "mean": 61.36
+    },
+    "raw_sha256": "93b8888f69318cc801aee52b295dbb6c63447d9b1eb9dfa889574844c83462f3"
+  },
+  "splits": {
+    "status": "passed",
+    "split_sha256": {
+      "train": "4adf8455a2190b54b79313ba3b45dc0f2a569e7bbb35a8611f8a21b23df6c29c",
+      "val": "a55c6b889b79de151db0e55f48a148231bb1d0bd7b61cca11d3d6cc2e57f9342",
+      "course_regression": "d94d739435f347f9adbff2563a8282ee7993834d3a216a3708abfbe2d4f3a996"
+    },
+    "leakage_checks": {
+      "query_id_overlap": 0,
+      "group_id_overlap": 0,
+      "exact_normalized_text_overlap": 0,
+      "near_duplicate_pairs": 0
+    },
+    "near_duplicate_threshold": 0.85,
+    "splits": {
+      "train": {
+        "total_records": 331,
+        "unique_groups": 158,
+        "label_counts": {
+          "affective_outcome": 54,
+          "affective_tone": 59,
+          "sensory_visual": 64,
+          "sensory_pacing": 53,
+          "person_actor": 50,
+          "person_director": 50,
+          "similarity_plot": 43,
+          "similarity_vibe": 49,
+          "attribute_genre": 156,
+          "attribute_era": 64,
+          "attribute_language_country": 62,
+          "negation_genre": 52,
+          "negation_content": 57,
+          "thematic_plot": 67
+        },
+        "multi_label_histogram": {
+          "2": 123,
+          "3": 198,
+          "4": 10
+        },
+        "query_char_length": {
+          "min": 24,
+          "max": 115,
+          "mean": 61.97
+        }
+      },
+      "val": {
+        "total_records": 58,
+        "unique_groups": 29,
+        "label_counts": {
+          "affective_outcome": 10,
+          "affective_tone": 8,
+          "sensory_visual": 10,
+          "sensory_pacing": 10,
+          "person_actor": 8,
+          "person_director": 8,
+          "similarity_plot": 10,
+          "similarity_vibe": 6,
+          "attribute_genre": 30,
+          "attribute_era": 10,
+          "attribute_language_country": 14,
+          "negation_genre": 10,
+          "negation_content": 12,
+          "thematic_plot": 10
+        },
+        "multi_label_histogram": {
+          "2": 20,
+          "3": 36,
+          "4": 2
+        },
+        "query_char_length": {
+          "min": 22,
+          "max": 98,
+          "mean": 59.91
+        }
+      },
+      "course_regression": {
+        "total_records": 66,
+        "unique_groups": 32,
+        "label_counts": {
+          "affective_outcome": 12,
+          "affective_tone": 12,
+          "sensory_visual": 10,
+          "sensory_pacing": 10,
+          "person_actor": 10,
+          "person_director": 6,
+          "similarity_plot": 10,
+          "similarity_vibe": 10,
+          "attribute_genre": 24,
+          "attribute_era": 12,
+          "attribute_language_country": 12,
+          "negation_genre": 10,
+          "negation_content": 12,
+          "thematic_plot": 12
+        },
+        "multi_label_histogram": {
+          "1": 6,
+          "2": 24,
+          "3": 36
+        },
+        "query_char_length": {
+          "min": 34,
+          "max": 87,
+          "mean": 59.55
+        }
+      }
+    }
+  }
+}
