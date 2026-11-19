@@ -1,0 +1,176 @@
+version: "1.0.0"
+
+label_order:
+  - affective_outcome
+  - affective_tone
+  - sensory_visual
+  - sensory_pacing
+  - person_actor
+  - person_director
+  - similarity_plot
+  - similarity_vibe
+  - attribute_genre
+  - attribute_era
+  - attribute_language_country
+  - negation_genre
+  - negation_content
+  - thematic_plot
+
+fine_to_broad:
+  affective_outcome: affective
+  affective_tone: affective
+  sensory_visual: sensory
+  sensory_pacing: sensory
+  person_actor: person
+  person_director: person
+  similarity_plot: similarity
+  similarity_vibe: similarity
+  attribute_genre: attribute
+  attribute_era: attribute
+  attribute_language_country: attribute
+  negation_genre: negation
+  negation_content: negation
+  thematic_plot: thematic
+
+broad_categories:
+  - affective
+  - sensory
+  - person
+  - similarity
+  - attribute
+  - negation
+  - thematic
+
+compound_rule:
+  description: "Derived property rather than a separate hiding label: is_compound = len(set(broad_labels)) >= 2."
+  min_distinct_broad_categories: 2
+
+ambiguity_and_unsupported_rules:
+  overlap: "Assign all applicable fine labels independently; e.g., genre + excluded content + tone produces [attribute_genre, negation_content, affective_tone]."
+  similarity_split: "Use similarity_plot when referencing story/premise mechanics ('twist like Knives Out'); use similarity_vibe when referencing mood/aesthetic ('atmosphere like Lost in Translation'). Both may co-occur."
+  false_negation: "Phrases like 'no idea what to watch' or 'without a doubt' are discourse filler, not negation_genre or negation_content."
+  unsupported_filters: "Runtime limits, streaming providers, age ratings, and budget are outside the bounded v1.0 extraction contract and remain unspecified."
+
+canonical_genres:
+  - Action
+  - Adventure
+  - Animation
+  - Comedy
+  - Crime
+  - Documentary
+  - Drama
+  - Family
+  - Fantasy
+  - History
+  - Horror
+  - Music
+  - Mystery
+  - Romance
+  - Science Fiction
+  - Thriller
+  - War
+  - Western
+  - Noir
+  - Anime
+  - Superhero
+
+genre_aliases:
+  action: Action
+  adventure: Adventure
+  animated: Animation
+  animation: Animation
+  anime: Anime
+  comedy: Comedy
+  comedies: Comedy
+  crime: Crime
+  doc: Documentary
+  docs: Documentary
+  documentary: Documentary
+  documentaries: Documentary
+  drama: Drama
+  dramas: Drama
+  family: Family
+  fantasy: Fantasy
+  historical: History
+  history: History
+  horror: Horror
+  music: Music
+  musical: Music
+  mystery: Mystery
+  mysteries: Mystery
+  neo-noir: Noir
+  noir: Noir
+  rom-com: Romance
+  romcom: Romance
+  rom-coms: Romance
+  romance: Romance
+  romantic: Romance
+  sci-fi: Science Fiction
+  scifi: Science Fiction
+  science fiction: Science Fiction
+  superhero: Superhero
+  superheroes: Superhero
+  thriller: Thriller
+  thrillers: Thriller
+  war: War
+  western: Western
+  westerns: Western
+
+canonical_languages:
+  en:
+    - english
+    - american
+    - british
+    - uk
+    - us
+    - hollywood
+  ko:
+    - korean
+    - south korean
+    - korea
+    - k-drama
+  ja:
+    - japanese
+    - japan
+  fr:
+    - french
+    - france
+  es:
+    - spanish
+    - spain
+    - mexican
+    - mexico
+    - argentinian
+    - argentina
+    - latin american
+  it:
+    - italian
+    - italy
+  de:
+    - german
+    - germany
+  hi:
+    - hindi
+    - indian
+    - india
+    - bollywood
+  zh:
+    - chinese
+    - mandarin
+    - cantonese
+    - hong kong
+    - taiwanese
+    - china
+  fa:
+    - iranian
+    - persian
+    - iran
+  sv:
+    - swedish
+    - sweden
+    - scandinavian
+    - nordic
+
+year_bounds:
+  min: 1888
+  max: 2030

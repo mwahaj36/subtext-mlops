@@ -1,0 +1,55 @@
+seed: 42
+
+paths:
+  raw_dataset: data/raw/d1_queries.jsonl
+  provenance_manifest: data/manifests/dataset_provenance.json
+  processed_dir: data/processed
+  split_manifest: data/manifests/split_manifest.json
+  validation_report: data/manifests/validation_report.json
+  taxonomy: configs/taxonomy.yaml
+  routing: configs/routing.yaml
+  dataset_schema: schemas/dataset_record.schema.json
+  prediction_schema: schemas/prediction_contract.schema.json
+
+split:
+  train_ratio: 0.70
+  val_ratio: 0.15
+  regression_ratio: 0.15
+  min_label_count_train: 25
+  min_label_count_val: 5
+  min_label_count_regression: 5
+  near_duplicate_threshold: 0.85
+
+baseline:
+  model_type: tfidf_ovr_logreg
+  word_ngram_range: [1, 2]
+  char_ngram_range: [3, 5]
+  max_features: 8000
+  logreg_c: 2.0
+  max_iter: 1000
+
+primary:
+  model_type: minilm_multilabel
+  model_name: sentence-transformers/all-MiniLM-L6-v2
+  model_revision: 1110a243fdf4706b3f48f1d95db1a4f5529b4d41
+  max_length: 128
+  batch_size: 16
+  epochs: 8
+  learning_rate: 3.0e-5
+  weight_decay: 0.01
+  warmup_ratio: 0.1
+  pos_weight_cap: 5.0
+  dropout: 0.1
+
+calibration:
+  method: temperature_scaling
+  threshold_grid_min: 0.20
+  threshold_grid_max: 0.80
+  threshold_grid_step: 0.02
+  default_threshold: 0.50
+
+selection:
+  primary_metric: val_macro_f1
+  tie_breaker: val_micro_f1
+  mlflow_experiment: subtext-intent-d1
+  registered_model_name: subtext-intent-multilabel

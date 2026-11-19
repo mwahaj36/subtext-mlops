@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SubtextPredictionContract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "request_id",
+    "schema_version",
+    "taxonomy_version",
+    "route_policy_version",
+    "model_id",
+    "model_version",
+    "predicted_fine_labels",
+    "predicted_broad_labels",
+    "is_compound",
+    "label_scores",
+    "applied_thresholds",
+    "extraction",
+    "selected_route",
+    "route_reason",
+    "llm_fallback"
+  ],
+  "properties": {
+    "request_id": { "type": "string", "minLength": 1 },
+    "schema_version": { "type": "string", "const": "1.0.0" },
+    "taxonomy_version": { "type": "string", "minLength": 1 },
+    "route_policy_version": { "type": "string", "minLength": 1 },
+    "model_id": { "type": "string", "minLength": 1 },
+    "model_version": { "type": "string", "minLength": 1 },
+    "predicted_fine_labels": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "predicted_broad_labels": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "is_compound": { "type": "boolean" },
+    "label_scores": {
+      "type": "object",
+      "additionalProperties": { "type": "number", "minimum": 0.0, "maximum": 1.0 }
+    },
+    "applied_thresholds": {
+      "type": "object",
+      "additionalProperties": { "type": "number", "minimum": 0.0, "maximum": 1.0 }
+    },
+    "extraction": { "$ref": "extraction.schema.json" },
+    "selected_route": {
+      "type": "string",
+      "enum": ["similarity_anchor", "structured_filter", "hybrid_concept", "dense_semantic"]
+    },
+    "route_reason": { "type": "string", "minLength": 1 },
+    "llm_fallback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["called", "status", "reason"],
+      "properties": {
+        "called": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["not_called", "succeeded", "timeout", "invalid_output", "error"] },
+        "reason": { "type": "string" }
+      }
+    }
+  }
+}
