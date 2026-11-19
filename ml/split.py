@@ -166,9 +166,8 @@ def split_dataset(train_cfg_path: Path | None = None) -> dict[str, Any]:
     for s in split_names:
         recs = sorted(assigned[s], key=lambda r: r["query_id"])
         out_path = processed_dir / f"{s}.jsonl"
-        out_path.write_text(
-            "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in recs),
-            encoding="utf-8",
+        out_path.write_bytes(
+            "".join(json.dumps(r, ensure_ascii=False) + "\r\n" for r in recs).encode("utf-8")
         )
         split_hashes[s] = sha256_file(out_path)
         split_summary[s] = {
