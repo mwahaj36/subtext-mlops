@@ -1,0 +1,1108 @@
+"""One-time D1 dataset curation script producing reviewed frozen raw JSONL and provenance."""
+from __future__ import annotations
+
+import json
+from collections import Counter, defaultdict
+from typing import Any
+
+from ml.extract import load_lexicons
+from ml.validate import REPO_ROOT, _shingles, jaccard_similarity, load_yaml, sha256_file, validate_records
+
+
+def _empty_extraction() -> dict[str, Any]:
+    return {
+        "actors": [],
+        "directors": [],
+        "genres": [],
+        "year_min": None,
+        "year_max": None,
+        "language": None,
+        "excluded_genres": [],
+        "excluded_terms": [],
+        "reference_titles": [],
+    }
+
+
+def _find_span(text: str, surface: str, occupied: list[tuple[int, int]]) -> tuple[int, int]:
+    low_t = text.lower()
+    low_s = surface.lower()
+    start = 0
+    while True:
+        idx = low_t.find(low_s, start)
+        if idx == -1:
+            raise ValueError(f"Surface '{surface}' not found in query: {text!r}")
+        end = idx + len(surface)
+        if not any(not (end <= os_ or idx >= oe_) for os_, oe_ in occupied):
+            occupied.append((idx, end))
+            return idx, end
+        start = idx + 1
+
+
+# Each entry: (group_id, fine_labels, extraction_overrides, [(query_text, [(span_field, surface), ...]), ...])
+GROUP_SPECS: list[tuple[str, list[str], dict[str, Any], list[tuple[str, list[tuple[str, str]]]]]] = [
+    # --- Affective outcome & affective tone ---
+    ("grp_001", ["affective_outcome"], {}, [
+        ("Need a movie that will make me cry my eyes out tonight", []),
+        ("Looking for a genuine tearjerker that leaves me sobbing", []),
+        ("Give me something devastating enough to trigger an ugly cry", []),
+    ]),
+    ("grp_002", ["affective_outcome", "affective_tone"], {}, [
+        ("Want something warm and comforting to calm down after a rough week", []),
+        ("Give me a gentle feel-good pick to soothe anxiety on a rainy evening", []),
+    ]),
+    ("grp_003", ["affective_outcome"], {}, [
+        ("Recommend something wildly hilarious that makes me laugh out loud", []),
+        ("In the mood for a movie that cheers me up immediately", []),
+        ("Need an absurdly funny watch to lift my spirits", []),
+    ]),
+    ("grp_004", ["affective_outcome", "sensory_pacing"], {}, [
+        ("Want an adrenaline rush that keeps my heart racing start to finish", []),
+        ("Looking for relentless breathless momentum to stay hooked all night", []),
+    ]),
+    ("grp_005", ["affective_outcome", "thematic_plot"], {}, [
+        ("Give me something mind-bending about memory that leaves me speechless", []),
+        ("Want a story about identity and secrets that lingers for days", []),
+    ]),
+    ("grp_006", ["affective_outcome", "attribute_genre"], {"genres": ["Horror"]}, [
+        ("Recommend a horror film terrifying enough to make me sleep with the lights on", [("genre", "horror")]),
+        ("Want genuine dread from a horror movie that unsettles me deeply", [("genre", "horror")]),
+    ]),
+    ("grp_007", ["affective_outcome", "affective_tone", "attribute_era"], {"year_min": 1990, "year_max": 1999}, [
+        ("Looking for nostalgic 90s comfort cinema with bittersweet warmth", [("era", "90s")]),
+        ("Make me feel nostalgic with a tender coming-of-age mood from the 1990s", [("era", "1990s")]),
+    ]),
+    ("grp_008", ["affective_outcome", "negation_content"], {"excluded_terms": ["sad ending"]}, [
+        ("Lift my mood with a hopeful uplift and no sad ending", [("excluded_term", "sad ending")]),
+        ("Want an inspiring pick that leaves me smiling without a sad ending", [("excluded_term", "sad ending")]),
+    ]),
+    ("grp_009", ["affective_tone", "attribute_genre"], {"genres": ["Drama"]}, [
+        ("In the mood for a quiet melancholic drama", [("genre", "drama")]),
+        ("Want a wistful understated drama filled with quiet longing", [("genre", "drama")]),
+    ]),
+    ("grp_010", ["affective_tone", "attribute_genre", "thematic_plot"], {"genres": ["Thriller"]}, [
+        ("Seeking a deeply paranoid thriller where everyone seems to be lying", [("genre", "thriller")]),
+        ("Give me an institutional conspiracy thriller steeped in distrust", [("genre", "thriller")]),
+    ]),
+    ("grp_011", ["affective_tone", "thematic_plot"], {}, [
+        ("Want a story with dark sardonic wit about toxic ambition", []),
+        ("Looking for a biting satirical portrait of wealth and hypocrisy", []),
+    ]),
+    ("grp_012", ["affective_tone", "sensory_visual"], {}, [
+        ("Craving a bleak monochrome atmosphere full of existential dread", []),
+        ("Looking for cold austere visuals paired with a desolate mood", []),
+    ]),
+    ("grp_013", ["affective_tone", "attribute_genre", "sensory_pacing"], {"genres": ["Romance"]}, [
+        ("Want a tender unhurried romance that lets silence breathe", [("genre", "romance")]),
+        ("Looking for an intimate slow-paced romance with aching vulnerability", [("genre", "romance")]),
+    ]),
+    ("grp_014", ["affective_tone", "attribute_genre"], {"genres": ["Comedy"]}, [
+        ("Give me a whimsical offbeat comedy with gentle charm", [("genre", "comedy")]),
+        ("Looking for a quirky dryly funny comedy that feels effortless", [("genre", "comedy")]),
+    ]),
+    ("grp_015", ["affective_tone", "negation_genre"], {"excluded_genres": ["Horror"]}, [
+        ("Want an eerie unsettling watch, not horror", [("excluded_genre", "horror")]),
+        ("Give me creeping psychological tension without horror tropes", [("excluded_genre", "horror")]),
+    ]),
+    ("grp_016", ["affective_outcome", "affective_tone", "negation_content"], {"excluded_terms": ["melodrama"]}, [
+        ("Want a heartbreaking farewell story that feels earned without melodrama", [("excluded_term", "melodrama")]),
+        ("Looking for quiet emotional devastation with no melodrama", [("excluded_term", "melodrama")]),
+    ]),
+    ("grp_017", ["affective_outcome", "sensory_visual", "attribute_language_country"], {"language": "ja"}, [
+        ("Need a soothing Japanese slice-of-life mood bathed in soft daylight", [("language_country", "Japanese")]),
+        ("Something calming from Japan with peaceful pastel scenery to unwind to", [("language_country", "Japan")]),
+    ]),
+    ("grp_018", ["affective_tone", "thematic_plot", "attribute_era"], {"year_min": 1970, "year_max": 1979}, [
+        ("Cynical 1970s paranoid tale about a political cover-up", [("era", "1970s")]),
+        ("Grim disillusioned 70s conspiracy story where nobody wins", [("era", "70s")]),
+    ]),
+
+    # --- Sensory visual & sensory pacing ---
+    ("grp_019", ["sensory_visual", "attribute_genre"], {"genres": ["Noir", "Crime"]}, [
+        ("Rainy neon-drenched city streets in a classic crime noir", [("genre", "crime"), ("genre", "noir")]),
+        ("Wet pavement, glowing signs, and shadowy urban crime noir visuals", [("genre", "crime"), ("genre", "noir")]),
+    ]),
+    ("grp_020", ["sensory_visual", "sensory_pacing"], {}, [
+        ("Sun-bleached desert landscapes with slow meditative pacing", []),
+        ("Arid wide-open dust storms and an unhurried sparse rhythm", []),
+        ("Scorching wasteland framing where every quiet shot lingers", []),
+    ]),
+    ("grp_021", ["sensory_visual", "sensory_pacing", "attribute_genre"], {"genres": ["History", "Drama"]}, [
+        ("Candlelit historical drama with unhurried framing and painterly composition", [("genre", "historical"), ("genre", "drama")]),
+        ("Lush history drama shot by candlelight with deliberate quiet pacing", [("genre", "history"), ("genre", "drama")]),
+        ("Warm period-textured historical drama moving at a calm stately tempo", [("genre", "historical"), ("genre", "drama")]),
+    ]),
+    ("grp_022", ["sensory_visual", "attribute_era"], {"year_min": 2010, "year_max": 2019}, [
+        ("Symmetrical pastel color palettes and dollhouse framing from the 2010s", [("era", "2010s")]),
+        ("Whimsical storybook production design from 2010s cinema", [("era", "2010s")]),
+    ]),
+    ("grp_023", ["sensory_pacing", "attribute_genre"], {"genres": ["Thriller"]}, [
+        ("Claustrophobic thriller driven by frantic editing and a pulsing synth score", [("genre", "thriller")]),
+        ("Nonstop kinetic thriller fueled by aggressive percussive music", [("genre", "thriller")]),
+        ("Breakneck thriller cut at a breathless pace with pounding electronics", [("genre", "thriller")]),
+    ]),
+    ("grp_024", ["sensory_pacing", "sensory_visual", "affective_tone"], {}, [
+        ("Minimal dialogue, lingering static shots, and hypnotic stillness", []),
+        ("Quiet slow-cinema pacing relying on ambient sound and stark framing", []),
+        ("Sparse contemplative imagery carried by long wordless silences", []),
+    ]),
+    ("grp_025", ["sensory_pacing", "thematic_plot"], {}, [
+        ("Ticking-clock heist tension propelled by a driving jazz soundtrack", []),
+        ("Tightly wound rhythmic story of precision and obsession set to live jazz", []),
+        ("Fast drumbeat momentum inside an intense rehearsal-room rivalry", []),
+    ]),
+    ("grp_026", ["sensory_visual", "thematic_plot", "negation_content"], {"excluded_terms": ["gore"]}, [
+        ("Foggy coastal lighthouse isolation with stark black-and-white visuals and no gore", [("excluded_term", "gore")]),
+        ("Misty windswept island survival steeped in eerie monochrome without gore", [("excluded_term", "gore")]),
+    ]),
+    ("grp_027", ["sensory_visual", "affective_tone", "attribute_language_country"], {"language": "zh"}, [
+        ("Steamy neon Hong Kong corridors drenched in lush nostalgic yearning", [("language_country", "Hong Kong")]),
+        ("Warm cigarette smoke, crimson curtains, and Hong Kong nighttime aesthetics", [("language_country", "Hong Kong")]),
+    ]),
+    ("grp_028", ["sensory_pacing", "attribute_genre", "negation_content"], {"genres": ["Drama"], "excluded_terms": ["voiceover"]}, [
+        ("Unfolding drama told in long continuous takes with no voiceover", [("genre", "drama"), ("excluded_term", "voiceover")]),
+        ("Restrained naturalistic drama driven by ambient room tone without voiceover", [("genre", "drama"), ("excluded_term", "voiceover")]),
+    ]),
+    ("grp_029", ["sensory_visual", "attribute_genre", "attribute_era"], {"genres": ["Science Fiction"], "year_min": 1980, "year_max": 1989}, [
+        ("Analog 80s sci-fi brimming with practical miniature models and hazy neon", [("era", "80s"), ("genre", "sci-fi")]),
+        ("Retro 1980s science fiction featuring smoky industrial sets and CRT glows", [("era", "1980s"), ("genre", "science fiction")]),
+    ]),
+    ("grp_030", ["sensory_visual", "sensory_pacing", "negation_genre"], {"excluded_genres": ["Action"]}, [
+        ("Handheld gritty realism and breathless street energy, no action", [("excluded_genre", "action")]),
+        ("Raw guerrilla camera work and chaotic urban soundscape, not action", [("excluded_genre", "action")]),
+    ]),
+
+    # --- Person: Actor ---
+    ("grp_031", ["person_actor", "attribute_genre"], {"actors": ["Willem Dafoe"], "genres": ["Thriller"]}, [
+        ("A tense psychological thriller starring Willem Dafoe", [("genre", "thriller"), ("actor", "Willem Dafoe")]),
+        ("Unsettling thriller featuring Willem Dafoe in an intense role", [("genre", "thriller"), ("actor", "Willem Dafoe")]),
+    ]),
+    ("grp_032", ["person_actor", "attribute_genre", "attribute_era"], {"actors": ["Florence Pugh"], "genres": ["Drama"], "year_min": 2019, "year_max": None}, [
+        ("Any gripping drama starring Florence Pugh after 2019", [("genre", "drama"), ("actor", "Florence Pugh"), ("era", "after 2019")]),
+        ("Drama with Florence Pugh released from 2019 onward", [("genre", "drama"), ("actor", "Florence Pugh"), ("era", "from 2019")]),
+    ]),
+    ("grp_033", ["person_actor", "attribute_language_country", "attribute_genre"], {"actors": ["Song Kang-ho"], "language": "ko", "genres": ["Crime"]}, [
+        ("Korean crime film starring Song Kang-ho", [("language_country", "Korean"), ("genre", "crime"), ("actor", "Song Kang-ho")]),
+        ("South Korean crime feature with Song Kang-ho leading the cast", [("language_country", "South Korean"), ("genre", "crime"), ("actor", "Song Kang-ho")]),
+    ]),
+    ("grp_034", ["person_actor", "affective_tone", "thematic_plot"], {"actors": ["Ethan Hawke"]}, [
+        ("Reflective philosophical conversation piece featuring Ethan Hawke about time passing", [("actor", "Ethan Hawke")]),
+        ("Quiet bittersweet character study starring Ethan Hawke on faith or aging", [("actor", "Ethan Hawke")]),
+    ]),
+    ("grp_035", ["person_actor", "attribute_genre", "negation_genre"], {"actors": ["Ryan Gosling"], "genres": ["Drama"], "excluded_genres": ["Romance"]}, [
+        ("Gritty drama with Ryan Gosling, no romance", [("genre", "drama"), ("actor", "Ryan Gosling"), ("excluded_genre", "romance")]),
+        ("Moody drama starring Ryan Gosling, not romance", [("genre", "drama"), ("actor", "Ryan Gosling"), ("excluded_genre", "romance")]),
+    ]),
+    ("grp_036", ["person_actor", "attribute_language_country", "affective_tone"], {"actors": ["Mads Mikkelsen"], "language": "sv"}, [
+        ("Bleak Nordic character piece starring Mads Mikkelsen", [("language_country", "Nordic"), ("actor", "Mads Mikkelsen")]),
+        ("Scandinavian slow-burn tragedy featuring Mads Mikkelsen", [("language_country", "Scandinavian"), ("actor", "Mads Mikkelsen")]),
+    ]),
+    ("grp_037", ["person_actor", "sensory_visual"], {"actors": ["Tilda Swinton"]}, [
+        ("Visually hypnotic arthouse cinema starring Tilda Swinton", [("actor", "Tilda Swinton")]),
+        ("Lush surreal aesthetics led by Tilda Swinton", [("actor", "Tilda Swinton")]),
+    ]),
+    ("grp_038", ["person_actor", "thematic_plot"], {"actors": ["Cate Blanchett"]}, [
+        ("Sharp study of artistic power and obsession starring Cate Blanchett", [("actor", "Cate Blanchett")]),
+        ("Story about ambition and unraveling authority featuring Cate Blanchett", [("actor", "Cate Blanchett")]),
+    ]),
+    ("grp_039", ["person_actor", "attribute_era", "attribute_genre"], {"actors": ["Robert Pattinson"], "year_min": 2015, "year_max": 2024, "genres": ["Crime"]}, [
+        ("Crime movies featuring Robert Pattinson between 2015 and 2024", [("genre", "crime"), ("actor", "Robert Pattinson"), ("era", "between 2015 and 2024")]),
+        ("Grimy crime film starring Robert Pattinson 2015-2024", [("genre", "crime"), ("actor", "Robert Pattinson"), ("era", "2015-2024")]),
+    ]),
+    ("grp_040", ["person_actor", "affective_outcome", "attribute_genre"], {"actors": ["Saoirse Ronan"], "genres": ["Drama"]}, [
+        ("Coming-of-age drama with Saoirse Ronan that makes me tear up", [("genre", "drama"), ("actor", "Saoirse Ronan")]),
+        ("Heartfelt drama starring Saoirse Ronan guaranteed to move me deeply", [("genre", "drama"), ("actor", "Saoirse Ronan")]),
+    ]),
+    ("grp_041", ["person_actor", "attribute_genre", "negation_content"], {"actors": ["Amy Adams"], "genres": ["Science Fiction"], "excluded_terms": ["action"]}, [
+        ("Thoughtful sci-fi starring Amy Adams without action clutter", [("genre", "sci-fi"), ("actor", "Amy Adams"), ("excluded_term", "action")]),
+        ("Cerebral science fiction featuring Amy Adams with no action setpieces", [("genre", "science fiction"), ("actor", "Amy Adams"), ("excluded_term", "action")]),
+    ]),
+    ("grp_042", ["person_actor", "attribute_language_country", "attribute_era"], {"actors": ["Cillian Murphy"], "language": "en", "year_min": 2000, "year_max": 2009}, [
+        ("British cinema from the 2000s starring Cillian Murphy", [("language_country", "British"), ("era", "2000s"), ("actor", "Cillian Murphy")]),
+        ("2000s UK indie film featuring Cillian Murphy", [("era", "2000s"), ("language_country", "UK"), ("actor", "Cillian Murphy")]),
+    ]),
+    ("grp_043", ["person_actor", "affective_tone", "negation_content"], {"actors": ["Emma Stone"], "excluded_terms": ["sad ending"]}, [
+        ("Witty offbeat story starring Emma Stone with no sad ending", [("actor", "Emma Stone"), ("excluded_term", "sad ending")]),
+        ("Sharp eccentric dark tale featuring Emma Stone without a sad ending", [("actor", "Emma Stone"), ("excluded_term", "sad ending")]),
+    ]),
+    ("grp_044", ["person_actor", "thematic_plot", "sensory_pacing"], {"actors": ["Joaquin Phoenix"]}, [
+        ("Lonely portrait of modern alienation starring Joaquin Phoenix at a quiet pace", [("actor", "Joaquin Phoenix")]),
+        ("Unhurried character study featuring Joaquin Phoenix drifting through grief", [("actor", "Joaquin Phoenix")]),
+    ]),
+    ("grp_045", ["person_actor", "attribute_genre"], {"actors": ["Jake Gyllenhaal"], "genres": ["Mystery"]}, [
+        ("Twisty obsessive mystery starring Jake Gyllenhaal", [("genre", "mystery"), ("actor", "Jake Gyllenhaal")]),
+        ("Paranoid puzzle mystery featuring Jake Gyllenhaal", [("genre", "mystery"), ("actor", "Jake Gyllenhaal")]),
+    ]),
+    ("grp_046", ["person_actor", "negation_genre", "affective_outcome"], {"actors": ["Paul Mescal"], "excluded_genres": ["Horror"]}, [
+        ("Tender film starring Paul Mescal that stays with me emotionally, no horror", [("actor", "Paul Mescal"), ("excluded_genre", "horror")]),
+        ("Moving intimate watch featuring Paul Mescal, not horror", [("actor", "Paul Mescal"), ("excluded_genre", "horror")]),
+    ]),
+    ("grp_047", ["person_actor", "attribute_genre", "negation_content"], {"actors": ["Toni Collette"], "genres": ["Horror"], "excluded_terms": ["jump scares"]}, [
+        ("Grief-soaked horror starring Toni Collette with no jump scares", [("genre", "horror"), ("actor", "Toni Collette"), ("excluded_term", "jump scares")]),
+        ("Atmospheric psychological horror featuring Toni Collette without jump scares", [("genre", "horror"), ("actor", "Toni Collette"), ("excluded_term", "jump scares")]),
+    ]),
+    ("grp_048", ["person_actor", "attribute_genre"], {"actors": ["Oscar Isaac"], "genres": ["Science Fiction"]}, [
+        ("Claustrophobic science fiction chamber piece starring Oscar Isaac", [("genre", "science fiction"), ("actor", "Oscar Isaac")]),
+        ("Minimalist sci-fi chamber film featuring Oscar Isaac", [("genre", "sci-fi"), ("actor", "Oscar Isaac")]),
+    ]),
+
+    # --- Person: Director ---
+    ("grp_049", ["person_director", "sensory_visual"], {"directors": ["Denis Villeneuve"]}, [
+        ("Monumental desolate visuals directed by Denis Villeneuve", [("director", "Denis Villeneuve")]),
+        ("Immersive stark cinematography from director Denis Villeneuve", [("director", "Denis Villeneuve")]),
+    ]),
+    ("grp_050", ["person_director", "attribute_language_country", "affective_tone"], {"directors": ["Wong Kar-wai"], "language": "zh"}, [
+        ("Aching Hong Kong yearning directed by Wong Kar-wai", [("language_country", "Hong Kong"), ("director", "Wong Kar-wai")]),
+        ("Lovesick Hong Kong cinema from director Wong Kar-wai", [("language_country", "Hong Kong"), ("director", "Wong Kar-wai")]),
+    ]),
+    ("grp_051", ["person_director", "attribute_era", "attribute_genre"], {"directors": ["Greta Gerwig"], "year_min": 2010, "year_max": 2019, "genres": ["Drama"]}, [
+        ("2010s coming-of-age drama directed by Greta Gerwig", [("era", "2010s"), ("genre", "drama"), ("director", "Greta Gerwig")]),
+        ("Warm coming-of-age drama from the 2010s by director Greta Gerwig", [("genre", "drama"), ("era", "2010s"), ("director", "Greta Gerwig")]),
+    ]),
+    ("grp_052", ["person_director", "thematic_plot", "sensory_pacing"], {"directors": ["Christopher Nolan"]}, [
+        ("Fractured time-puzzle narrative with ticking momentum directed by Christopher Nolan", [("director", "Christopher Nolan")]),
+        ("Nonlinear obsession tale propelled by relentless pacing from director Christopher Nolan", [("director", "Christopher Nolan")]),
+    ]),
+    ("grp_053", ["person_director", "attribute_language_country", "attribute_era"], {"directors": ["Akira Kurosawa"], "language": "ja", "year_min": 1950, "year_max": 1969}, [
+        ("Japanese classics between 1950 and 1969 directed by Akira Kurosawa", [("language_country", "Japanese"), ("era", "between 1950 and 1969"), ("director", "Akira Kurosawa")]),
+        ("Classic black-and-white cinema from Japan 1950-1969 by director Akira Kurosawa", [("language_country", "Japan"), ("era", "1950-1969"), ("director", "Akira Kurosawa")]),
+    ]),
+    ("grp_054", ["person_director", "affective_tone", "sensory_visual"], {"directors": ["Sofia Coppola"]}, [
+        ("Dreamy pastel alienation directed by Sofia Coppola", [("director", "Sofia Coppola")]),
+        ("Hazy sun-dappled loneliness from director Sofia Coppola", [("director", "Sofia Coppola")]),
+    ]),
+    ("grp_055", ["person_director", "attribute_language_country", "attribute_genre"], {"directors": ["Park Chan-wook"], "language": "ko", "genres": ["Thriller"]}, [
+        ("Twisted Korean thriller directed by Park Chan-wook", [("language_country", "Korean"), ("genre", "thriller"), ("director", "Park Chan-wook")]),
+        ("Lush South Korean revenge thriller from director Park Chan-wook", [("language_country", "South Korean"), ("genre", "thriller"), ("director", "Park Chan-wook")]),
+    ]),
+    ("grp_056", ["person_director", "attribute_language_country", "affective_outcome"], {"directors": ["Céline Sciamma"], "language": "fr"}, [
+        ("French intimate portrait directed by Céline Sciamma that makes me cry", [("language_country", "French"), ("director", "Céline Sciamma")]),
+        ("Quietly devastating cinema from France by director Céline Sciamma", [("language_country", "France"), ("director", "Céline Sciamma")]),
+    ]),
+    ("grp_057", ["person_director", "attribute_genre", "attribute_language_country", "affective_outcome"], {"directors": ["Hayao Miyazaki"], "genres": ["Animation"], "language": "ja"}, [
+        ("Japanese animation directed by Hayao Miyazaki to soothe my mood", [("language_country", "Japanese"), ("genre", "animation"), ("director", "Hayao Miyazaki")]),
+        ("Cozy heartwarming animation from Japan by director Hayao Miyazaki for a comforting evening", [("genre", "animation"), ("language_country", "Japan"), ("director", "Hayao Miyazaki")]),
+    ]),
+    ("grp_058", ["person_director", "attribute_genre", "negation_genre"], {"directors": ["David Fincher"], "genres": ["Crime"], "excluded_genres": ["Comedy"]}, [
+        ("Meticulous crime procedural directed by David Fincher, no comedy", [("genre", "crime"), ("director", "David Fincher"), ("excluded_genre", "comedy")]),
+        ("Cold investigative crime film from director David Fincher, not comedy", [("genre", "crime"), ("director", "David Fincher"), ("excluded_genre", "comedy")]),
+    ]),
+    ("grp_059", ["person_director", "attribute_era", "attribute_genre"], {"directors": ["Martin Scorsese"], "year_min": 1970, "year_max": 1979, "genres": ["Crime"]}, [
+        ("Gritty 1970s crime picture directed by Martin Scorsese", [("era", "1970s"), ("genre", "crime"), ("director", "Martin Scorsese")]),
+        ("70s New York crime cinema from director Martin Scorsese", [("era", "70s"), ("genre", "crime"), ("director", "Martin Scorsese")]),
+    ]),
+    ("grp_060", ["person_director", "sensory_visual", "affective_tone"], {"directors": ["Wes Anderson"]}, [
+        ("Deadpan whimsical symmetry directed by Wes Anderson", [("director", "Wes Anderson")]),
+        ("Ornate storybook color palettes and dry humor from director Wes Anderson", [("director", "Wes Anderson")]),
+    ]),
+    ("grp_061", ["person_director", "attribute_genre", "negation_content"], {"directors": ["Ari Aster"], "genres": ["Horror"], "excluded_terms": ["aliens"]}, [
+        ("Dread-soaked horror directed by Ari Aster without aliens", [("genre", "horror"), ("director", "Ari Aster"), ("excluded_term", "aliens")]),
+        ("Unnerving daylight horror from director Ari Aster with no aliens", [("genre", "horror"), ("director", "Ari Aster"), ("excluded_term", "aliens")]),
+    ]),
+    ("grp_062", ["person_director", "sensory_visual", "attribute_genre"], {"directors": ["Robert Eggers"], "genres": ["Horror"]}, [
+        ("Period folklore horror with stark monochrome texture directed by Robert Eggers", [("genre", "horror"), ("director", "Robert Eggers")]),
+        ("Historically textured gothic horror from director Robert Eggers", [("genre", "horror"), ("director", "Robert Eggers")]),
+    ]),
+    ("grp_063", ["person_director", "thematic_plot", "attribute_genre"], {"directors": ["Jordan Peele"], "genres": ["Thriller"]}, [
+        ("Social satire thriller about paranoia and class directed by Jordan Peele", [("genre", "thriller"), ("director", "Jordan Peele")]),
+        ("Razor-sharp suspense thriller exploring systemic dread from director Jordan Peele", [("genre", "thriller"), ("director", "Jordan Peele")]),
+    ]),
+    ("grp_064", ["person_director", "attribute_language_country", "attribute_genre", "thematic_plot"], {"directors": ["Asghar Farhadi"], "language": "fa", "genres": ["Drama"]}, [
+        ("Iranian moral dilemma drama directed by Asghar Farhadi", [("language_country", "Iranian"), ("genre", "drama"), ("director", "Asghar Farhadi")]),
+        ("Persian domestic drama about truth and pride from director Asghar Farhadi", [("language_country", "Persian"), ("genre", "drama"), ("director", "Asghar Farhadi")]),
+    ]),
+    ("grp_065", ["person_director", "attribute_language_country", "sensory_visual"], {"directors": ["Pedro Almodóvar"], "language": "es"}, [
+        ("Vibrant Spanish melodrama directed by Pedro Almodóvar with vivid reds", [("language_country", "Spanish"), ("director", "Pedro Almodóvar")]),
+        ("Colorful crimson cinema from Spain by director Pedro Almodóvar", [("language_country", "Spain"), ("director", "Pedro Almodóvar")]),
+    ]),
+    ("grp_066", ["person_director", "sensory_pacing", "negation_genre"], {"directors": ["Andrei Tarkovsky"], "excluded_genres": ["Action"]}, [
+        ("Meditative poetic slow cinema directed by Andrei Tarkovsky, no action", [("director", "Andrei Tarkovsky"), ("excluded_genre", "action")]),
+        ("Unhurried spiritual cinema from director Andrei Tarkovsky, without action", [("director", "Andrei Tarkovsky"), ("excluded_genre", "action")]),
+    ]),
+
+    # --- Similarity: Plot ---
+    ("grp_067", ["similarity_plot", "attribute_genre"], {"reference_titles": ["Knives Out"], "genres": ["Mystery"]}, [
+        ("Clever ensemble whodunnit mystery like Knives Out", [("genre", "mystery"), ("reference_title", "Knives Out")]),
+        ("Twist-filled family mansion murder mystery similar to Knives Out", [("genre", "mystery"), ("reference_title", "Knives Out")]),
+        ("Playful detective mystery with twists reminiscent of Knives Out", [("genre", "mystery"), ("reference_title", "Knives Out")]),
+    ]),
+    ("grp_068", ["similarity_plot", "sensory_pacing"], {"reference_titles": ["Good Time"]}, [
+        ("One-crazy-night botched heist spiral like Good Time with breathless pacing", [("reference_title", "Good Time")]),
+        ("Relentless desperate street-chase premise similar to Good Time", [("reference_title", "Good Time")]),
+        ("Frantic overnight scramble plot with urgent energy reminiscent of Good Time", [("reference_title", "Good Time")]),
+    ]),
+    ("grp_069", ["similarity_plot", "thematic_plot", "affective_outcome"], {"reference_titles": ["Eternal Sunshine of the Spotless Mind"]}, [
+        ("Heartbreaking breakup memory-erasure premise like Eternal Sunshine of the Spotless Mind", [("reference_title", "Eternal Sunshine of the Spotless Mind")]),
+        ("Bittersweet story of forgetting someone similar to Eternal Sunshine of the Spotless Mind that wrecks me", [("reference_title", "Eternal Sunshine of the Spotless Mind")]),
+        ("Painful memory-deletion love story reminiscent of Eternal Sunshine of the Spotless Mind that makes me cry", [("reference_title", "Eternal Sunshine of the Spotless Mind")]),
+    ]),
+    ("grp_070", ["similarity_plot", "attribute_genre", "negation_content"], {"reference_titles": ["Zodiac"], "genres": ["Crime"], "excluded_terms": ["gore"]}, [
+        ("Obsessive unsolved crime investigation like Zodiac without gore", [("genre", "crime"), ("reference_title", "Zodiac"), ("excluded_term", "gore")]),
+        ("Meticulous journalist-and-detective crime hunt similar to Zodiac with no gore", [("genre", "crime"), ("reference_title", "Zodiac"), ("excluded_term", "gore")]),
+        ("Years-long cold-case crime puzzle reminiscent of Zodiac without gore", [("genre", "crime"), ("reference_title", "Zodiac"), ("excluded_term", "gore")]),
+    ]),
+    ("grp_071", ["similarity_plot", "thematic_plot"], {"reference_titles": ["Memento"]}, [
+        ("Unreliable narrator puzzle story like Memento", [("reference_title", "Memento")]),
+        ("Fragmented reverse-memory puzzle premise similar to Memento", [("reference_title", "Memento")]),
+        ("Memory-loss detective riddle reminiscent of Memento", [("reference_title", "Memento")]),
+    ]),
+    ("grp_072", ["similarity_plot", "attribute_language_country", "thematic_plot"], {"reference_titles": ["Parasite"], "language": "ko"}, [
+        ("Sharp Korean class-infiltration satire like Parasite", [("language_country", "Korean"), ("reference_title", "Parasite")]),
+        ("Dark social-climbing scheme from Korea similar to Parasite", [("language_country", "Korea"), ("reference_title", "Parasite")]),
+    ]),
+    ("grp_073", ["similarity_plot", "thematic_plot", "sensory_pacing"], {"reference_titles": ["Whiplash"]}, [
+        ("Rhythmic mentor-student obsession rivalry like Whiplash", [("reference_title", "Whiplash")]),
+        ("High-pressure perfectionist breakdown cadence similar to Whiplash", [("reference_title", "Whiplash")]),
+    ]),
+    ("grp_074", ["similarity_plot", "attribute_genre", "negation_content"], {"reference_titles": ["Ex Machina"], "genres": ["Science Fiction"], "excluded_terms": ["space battles"]}, [
+        ("Intimate AI containment sci-fi like Ex Machina without space battles", [("genre", "sci-fi"), ("reference_title", "Ex Machina"), ("excluded_term", "space battles")]),
+        ("Chamber science fiction test premise similar to Ex Machina with no space battles", [("genre", "science fiction"), ("reference_title", "Ex Machina"), ("excluded_term", "space battles")]),
+    ]),
+    ("grp_075", ["similarity_plot", "thematic_plot"], {"reference_titles": ["Black Swan"]}, [
+        ("Psychological descent into artistic paranoia like Black Swan", [("reference_title", "Black Swan")]),
+        ("Obsessive double-life unraveling story similar to Black Swan", [("reference_title", "Black Swan")]),
+    ]),
+    ("grp_076", ["similarity_plot", "negation_genre"], {"reference_titles": ["Prisoners"], "excluded_genres": ["Horror"]}, [
+        ("Grim missing-person detective desperation like Prisoners, no horror", [("reference_title", "Prisoners"), ("excluded_genre", "horror")]),
+        ("Morally agonizing kidnapping investigation similar to Prisoners, not horror", [("reference_title", "Prisoners"), ("excluded_genre", "horror")]),
+    ]),
+    ("grp_077", ["similarity_plot", "attribute_era", "attribute_genre"], {"reference_titles": ["Arrival"], "year_min": 2010, "year_max": 2024, "genres": ["Science Fiction"]}, [
+        ("Linguistic first-contact sci-fi puzzle like Arrival between 2010 and 2024", [("genre", "sci-fi"), ("reference_title", "Arrival"), ("era", "between 2010 and 2024")]),
+        ("Thoughtful time-perception science fiction premise similar to Arrival from 2010-2024", [("genre", "science fiction"), ("reference_title", "Arrival"), ("era", "2010-2024")]),
+    ]),
+    ("grp_078", ["similarity_plot", "attribute_genre"], {"reference_titles": ["Get Out"], "genres": ["Thriller"]}, [
+        ("Weekend getaway conspiracy thriller like Get Out", [("genre", "thriller"), ("reference_title", "Get Out")]),
+        ("Creeping social entrapment thriller similar to Get Out", [("genre", "thriller"), ("reference_title", "Get Out")]),
+    ]),
+    ("grp_079", ["similarity_plot", "sensory_visual"], {"reference_titles": ["Sicario"]}, [
+        ("Border-operation moral corruption plot like Sicario with stark desert cinematography", [("reference_title", "Sicario")]),
+        ("Grim covert-cartel investigation premise similar to Sicario in sun-baked dust", [("reference_title", "Sicario")]),
+    ]),
+    ("grp_080", ["similarity_plot", "affective_outcome"], {"reference_titles": ["Interstellar"]}, [
+        ("High-stakes space survival rescue plot like Interstellar that hits emotionally", [("reference_title", "Interstellar")]),
+        ("Father-daughter time-dilation mission similar to Interstellar that makes me tear up", [("reference_title", "Interstellar")]),
+    ]),
+    ("grp_081", ["similarity_plot", "similarity_vibe"], {"reference_titles": ["Memories of Murder"]}, [
+        ("Rain-soaked bumbling small-town murder hunt and bleak atmosphere like Memories of Murder", [("reference_title", "Memories of Murder")]),
+        ("Grimy provincial detective story with haunting mood similar to Memories of Murder", [("reference_title", "Memories of Murder")]),
+    ]),
+    ("grp_082", ["similarity_plot", "similarity_vibe", "attribute_genre"], {"reference_titles": ["No Country for Old Men"], "genres": ["Crime"]}, [
+        ("Stolen-cash desert chase plot and quiet dread like No Country for Old Men in crime", [("reference_title", "No Country for Old Men"), ("genre", "crime")]),
+        ("Fatalistic crime pursuit with austere silent tension similar to No Country for Old Men", [("genre", "crime"), ("reference_title", "No Country for Old Men")]),
+    ]),
+
+    # --- Similarity: Vibe ---
+    ("grp_083", ["similarity_vibe", "sensory_visual", "affective_tone"], {"reference_titles": ["Lost in Translation"]}, [
+        ("Lonely late-night Tokyo glow and drifting melancholy like Lost in Translation", [("reference_title", "Lost in Translation")]),
+        ("Quiet hotel-bar alienation vibes similar to Lost in Translation", [("reference_title", "Lost in Translation")]),
+        ("Jet-lagged neon solitude mood reminiscent of Lost in Translation", [("reference_title", "Lost in Translation")]),
+    ]),
+    ("grp_084", ["similarity_vibe", "affective_tone"], {"reference_titles": ["In the Mood for Love"]}, [
+        ("Swirling slow-motion longing and unspoken yearning vibes like In the Mood for Love", [("reference_title", "In the Mood for Love")]),
+        ("Lush restrained heartbreak atmosphere similar to In the Mood for Love", [("reference_title", "In the Mood for Love")]),
+        ("Smoky wistful hallway mood reminiscent of In the Mood for Love", [("reference_title", "In the Mood for Love")]),
+    ]),
+    ("grp_085", ["similarity_vibe", "sensory_visual", "sensory_pacing"], {"reference_titles": ["Blade Runner 2049"]}, [
+        ("Hazy orange monoliths, synth hum, and deliberate vibe like Blade Runner 2049", [("reference_title", "Blade Runner 2049")]),
+        ("Rainy monumental cyberpunk atmosphere similar to Blade Runner 2049", [("reference_title", "Blade Runner 2049")]),
+        ("Unhurried towering dystopian visuals with bass resonance reminiscent of Blade Runner 2049", [("reference_title", "Blade Runner 2049")]),
+    ]),
+    ("grp_086", ["similarity_vibe", "sensory_visual"], {"reference_titles": ["Drive"]}, [
+        ("Neon freeway nights and cool synthwave atmosphere like Drive", [("reference_title", "Drive")]),
+        ("Sleek nocturnal jacket-and-headlights mood similar to Drive", [("reference_title", "Drive")]),
+        ("Magenta city-street stillness vibes reminiscent of Drive", [("reference_title", "Drive")]),
+    ]),
+    ("grp_087", ["similarity_vibe", "affective_outcome"], {"reference_titles": ["Aftersun"]}, [
+        ("Sunlit nostalgic home-video warmth that breaks my heart like Aftersun", [("reference_title", "Aftersun")]),
+        ("Tender devastating summer-memory vibe similar to Aftersun", [("reference_title", "Aftersun")]),
+        ("Aching bittersweet vacation glow reminiscent of Aftersun that makes me sob", [("reference_title", "Aftersun")]),
+    ]),
+    ("grp_088", ["similarity_vibe", "sensory_visual", "negation_content"], {"reference_titles": ["Portrait of a Lady on Fire"], "excluded_terms": ["melodrama"]}, [
+        ("Sea-breeze painterly intimacy and stolen glances like Portrait of a Lady on Fire without melodrama", [("reference_title", "Portrait of a Lady on Fire"), ("excluded_term", "melodrama")]),
+        ("Quiet candlelit coastal longing similar to Portrait of a Lady on Fire with no melodrama", [("reference_title", "Portrait of a Lady on Fire"), ("excluded_term", "melodrama")]),
+    ]),
+    ("grp_089", ["similarity_vibe", "sensory_pacing"], {"reference_titles": ["Uncut Gems"]}, [
+        ("Claustrophobic shouting overlap and frantic anxiety vibes like Uncut Gems", [("reference_title", "Uncut Gems")]),
+        ("Sweaty high-wire chaotic pacing similar to Uncut Gems", [("reference_title", "Uncut Gems")]),
+    ]),
+    ("grp_090", ["similarity_vibe", "affective_tone", "attribute_genre"], {"reference_titles": ["The Witch"], "genres": ["Horror"]}, [
+        ("Bleak candlelit folk-dread horror vibes like The Witch", [("genre", "horror"), ("reference_title", "The Witch")]),
+        ("Muted austere forest horror mood similar to The Witch", [("genre", "horror"), ("reference_title", "The Witch")]),
+    ]),
+    ("grp_091", ["similarity_vibe", "attribute_genre", "negation_content"], {"reference_titles": ["Midsommar"], "genres": ["Horror"], "excluded_terms": ["jump scares"]}, [
+        ("Sunlit pastel folk-horror dread like Midsommar with no jump scares", [("genre", "horror"), ("reference_title", "Midsommar"), ("excluded_term", "jump scares")]),
+        ("Bright daylight unsettling horror atmosphere similar to Midsommar without jump scares", [("genre", "horror"), ("reference_title", "Midsommar"), ("excluded_term", "jump scares")]),
+    ]),
+    ("grp_092", ["similarity_vibe", "sensory_visual", "attribute_era"], {"reference_titles": ["Chungking Express"], "year_min": 1990, "year_max": 1999}, [
+        ("Handheld kinetic neon daydream vibe like Chungking Express from the 90s", [("reference_title", "Chungking Express"), ("era", "90s")]),
+        ("Restless warm 1990s city pop glow similar to Chungking Express", [("era", "1990s"), ("reference_title", "Chungking Express")]),
+    ]),
+    ("grp_093", ["similarity_vibe", "sensory_visual"], {"reference_titles": ["Mulholland Drive"]}, [
+        ("Dreamlike velvet nightmare atmosphere like Mulholland Drive", [("reference_title", "Mulholland Drive")]),
+        ("Surreal hypnotic Los Angeles shadow mood similar to Mulholland Drive", [("reference_title", "Mulholland Drive")]),
+    ]),
+    ("grp_094", ["similarity_vibe", "affective_outcome", "attribute_genre"], {"reference_titles": ["Spirited Away"], "genres": ["Animation"]}, [
+        ("Magical comforting animation wonder like Spirited Away to soothe me", [("genre", "animation"), ("reference_title", "Spirited Away")]),
+        ("Lush gentle animation nostalgia similar to Spirited Away", [("genre", "animation"), ("reference_title", "Spirited Away")]),
+    ]),
+    ("grp_095", ["similarity_vibe", "affective_tone"], {"reference_titles": ["Her"]}, [
+        ("Soft warm pastel futuristic loneliness vibes like Her", [("reference_title", "Her")]),
+        ("Tender melancholic near-future atmosphere similar to Her", [("reference_title", "Her")]),
+    ]),
+    ("grp_096", ["similarity_vibe", "sensory_visual", "negation_genre"], {"reference_titles": ["Moonlight"], "excluded_genres": ["Action"]}, [
+        ("Luminous blue-lit emotional poetry vibes like Moonlight, no action", [("reference_title", "Moonlight"), ("excluded_genre", "action")]),
+        ("Intimate ocean-breeze coming-of-age mood similar to Moonlight, not action", [("reference_title", "Moonlight"), ("excluded_genre", "action")]),
+    ]),
+
+    # --- Attribute: Era & Genre & Language/Country ---
+    ("grp_097", ["attribute_era", "attribute_genre"], {"year_min": 1970, "year_max": 1979, "genres": ["Thriller"]}, [
+        ("Paranoid 1970s conspiracy thriller", [("era", "1970s"), ("genre", "thriller")]),
+        ("Gritty 70s political thriller", [("era", "70s"), ("genre", "thriller")]),
+    ]),
+    ("grp_098", ["attribute_era", "attribute_genre"], {"year_min": 1990, "year_max": 1999, "genres": ["Crime"]}, [
+        ("Smart 1990s indie crime films", [("era", "1990s"), ("genre", "crime")]),
+        ("Slick 90s crime capers", [("era", "90s"), ("genre", "crime")]),
+    ]),
+    ("grp_099", ["attribute_era", "attribute_genre", "affective_outcome"], {"year_min": 1980, "year_max": 1989, "genres": ["Adventure"]}, [
+        ("Cozy 1980s adventure movie to cheer me up", [("era", "1980s"), ("genre", "adventure")]),
+        ("Feel-good 80s adventure throwback for a Sunday", [("era", "80s"), ("genre", "adventure")]),
+    ]),
+    ("grp_100", ["attribute_era", "attribute_genre"], {"year_min": 2000, "year_max": 2009, "genres": ["Mystery"]}, [
+        ("Mind-twisting 2000s mystery films", [("era", "2000s"), ("genre", "mystery")]),
+        ("Atmospheric puzzle mystery released in the 2000s", [("genre", "mystery"), ("era", "2000s")]),
+    ]),
+    ("grp_101", ["attribute_era", "attribute_genre", "negation_content"], {"year_min": 2018, "year_max": None, "genres": ["Horror"], "excluded_terms": ["zombies"]}, [
+        ("Elevated horror after 2018 with no zombies", [("genre", "horror"), ("era", "after 2018"), ("excluded_term", "zombies")]),
+        ("Fresh horror from 2018 onward without zombies", [("genre", "horror"), ("era", "from 2018"), ("excluded_term", "zombies")]),
+    ]),
+    ("grp_102", ["attribute_era", "attribute_language_country", "attribute_genre"], {"year_min": None, "year_max": 1980, "language": "fr", "genres": ["Crime"]}, [
+        ("French crime cinema before 1980", [("language_country", "French"), ("genre", "crime"), ("era", "before 1980")]),
+        ("Classic crime cinema from France prior to 1980", [("genre", "crime"), ("language_country", "France"), ("era", "prior to 1980")]),
+    ]),
+    ("grp_103", ["attribute_era", "attribute_genre"], {"year_min": 1995, "year_max": 2005, "genres": ["Science Fiction"]}, [
+        ("Cerebral sci-fi between 1995 and 2005", [("genre", "sci-fi"), ("era", "between 1995 and 2005")]),
+        ("Turn-of-the-millennium science fiction 1995-2005", [("genre", "science fiction"), ("era", "1995-2005")]),
+    ]),
+    ("grp_104", ["attribute_era", "attribute_genre", "thematic_plot"], {"year_min": 1999, "year_max": 1999, "genres": ["Drama"]}, [
+        ("Alienation drama released in 1999 about corporate emptiness", [("genre", "drama"), ("era", "1999")]),
+        ("Satirical workplace drama from 1999", [("genre", "drama"), ("era", "from 1999")]),
+    ]),
+    ("grp_105", ["attribute_era", "attribute_language_country", "attribute_genre", "affective_tone"], {"year_min": 2020, "year_max": 2029, "language": "en", "genres": ["Drama"]}, [
+        ("Tender British drama from the 2020s", [("language_country", "British"), ("genre", "drama"), ("era", "2020s")]),
+        ("Bittersweet UK drama released in the 2020s", [("language_country", "UK"), ("genre", "drama"), ("era", "2020s")]),
+    ]),
+    ("grp_106", ["attribute_era", "negation_genre"], {"year_min": 1960, "year_max": 1969, "excluded_genres": ["Music"]}, [
+        ("Stylish 1960s espionage cinema, not musical", [("era", "1960s"), ("excluded_genre", "musical")]),
+        ("Cool 60s spy mood without musicals", [("era", "60s"), ("excluded_genre", "musicals")]),
+    ]),
+    ("grp_107", ["attribute_language_country", "attribute_genre"], {"language": "ko", "genres": ["Thriller"]}, [
+        ("Gritty South Korean psychological thriller", [("language_country", "South Korean"), ("genre", "thriller")]),
+        ("Tense thriller from Korea", [("genre", "thriller"), ("language_country", "Korea")]),
+    ]),
+    ("grp_108", ["attribute_language_country", "attribute_genre", "negation_content"], {"language": "ja", "genres": ["Anime"], "excluded_terms": ["mecha"]}, [
+        ("Thoughtful Japanese anime without mecha", [("language_country", "Japanese"), ("genre", "anime"), ("excluded_term", "mecha")]),
+        ("Lyrical anime from Japan with no mecha", [("genre", "anime"), ("language_country", "Japan"), ("excluded_term", "mecha")]),
+    ]),
+    ("grp_109", ["attribute_language_country", "attribute_genre", "affective_outcome"], {"language": "fr", "genres": ["Comedy"]}, [
+        ("Lighthearted French comedy to cheer me up", [("language_country", "French"), ("genre", "comedy")]),
+        ("Charming comedy from France that puts me in a great mood", [("genre", "comedy"), ("language_country", "France")]),
+    ]),
+    ("grp_110", ["attribute_language_country", "attribute_genre", "thematic_plot"], {"language": "es", "genres": ["Thriller"]}, [
+        ("Tense Spanish thriller about courtroom corruption", [("language_country", "Spanish"), ("genre", "thriller")]),
+        ("Argentinian investigative thriller about an unsolved injustice", [("language_country", "Argentinian"), ("genre", "thriller")]),
+    ]),
+    ("grp_111", ["attribute_language_country", "attribute_era", "attribute_genre"], {"language": "it", "year_min": 1960, "year_max": 1979, "genres": ["Mystery"]}, [
+        ("Stylish Italian mystery between 1960 and 1979", [("language_country", "Italian"), ("genre", "mystery"), ("era", "between 1960 and 1979")]),
+        ("Classic mystery from Italy 1960-1979", [("genre", "mystery"), ("language_country", "Italy"), ("era", "1960-1979")]),
+    ]),
+    ("grp_112", ["attribute_language_country", "attribute_genre", "sensory_visual"], {"language": "de", "genres": ["Drama"]}, [
+        ("Shadowy German drama in stark monochrome", [("language_country", "German"), ("genre", "drama")]),
+        ("Austere drama from Germany set in misty streets", [("genre", "drama"), ("language_country", "Germany")]),
+    ]),
+    ("grp_113", ["attribute_language_country", "attribute_genre", "affective_tone"], {"language": "hi", "genres": ["Drama"]}, [
+        ("Poignant Indian social drama with warm humor", [("language_country", "Indian"), ("genre", "drama")]),
+        ("Bittersweet Hindi drama rooted in small-town life", [("language_country", "Hindi"), ("genre", "drama")]),
+    ]),
+    ("grp_114", ["attribute_language_country", "attribute_genre", "sensory_pacing"], {"language": "fa", "genres": ["Drama"]}, [
+        ("Unhurried Iranian realist drama following everyday journeys", [("language_country", "Iranian"), ("genre", "drama")]),
+        ("Quiet poetic drama from Iran with natural dialogue", [("genre", "drama"), ("language_country", "Iran")]),
+    ]),
+    ("grp_115", ["attribute_language_country", "attribute_genre"], {"language": "sv", "genres": ["Crime"]}, [
+        ("Cold atmospheric Scandinavian crime story", [("language_country", "Scandinavian"), ("genre", "crime")]),
+        ("Brooding Nordic crime investigation", [("language_country", "Nordic"), ("genre", "crime")]),
+    ]),
+    ("grp_116", ["attribute_language_country", "negation_genre"], {"language": "zh", "excluded_genres": ["Action"]}, [
+        ("Intimate Taiwanese character piece, no action", [("language_country", "Taiwanese"), ("excluded_genre", "action")]),
+        ("Quiet Mandarin slice-of-life story, without action", [("language_country", "Mandarin"), ("excluded_genre", "action")]),
+    ]),
+    ("grp_117", ["attribute_era", "attribute_language_country", "attribute_genre", "affective_outcome"], {"year_min": 2022, "year_max": 2022, "language": "ko", "genres": ["Drama"]}, [
+        ("Best Korean drama from 2022 that leaves me wrecked", [("language_country", "Korean"), ("genre", "drama"), ("era", "from 2022")]),
+        ("Heartbreaking drama released in 2022 from Korea", [("genre", "drama"), ("era", "2022"), ("language_country", "Korea")]),
+    ]),
+    ("grp_118", ["attribute_genre", "attribute_era", "negation_content"], {"genres": ["Western"], "year_min": 2000, "year_max": None, "excluded_terms": ["comic relief"]}, [
+        ("Grim modern western after 2000 with no comic relief", [("genre", "western"), ("era", "after 2000"), ("excluded_term", "comic relief")]),
+        ("Revisionist western from 2000 onward without comic relief", [("genre", "western"), ("era", "from 2000"), ("excluded_term", "comic relief")]),
+    ]),
+    ("grp_119", ["attribute_genre", "sensory_visual", "attribute_era"], {"genres": ["Documentary"], "year_min": 2010, "year_max": 2025}, [
+        ("Visually immersive documentary between 2010 and 2025", [("genre", "documentary"), ("era", "between 2010 and 2025")]),
+        ("Cinematographic nature documentary 2010-2025", [("genre", "documentary"), ("era", "2010-2025")]),
+    ]),
+    ("grp_120", ["attribute_genre", "thematic_plot"], {"genres": ["Superhero"]}, [
+        ("Grounded superhero origin about moral compromise", [("genre", "superhero")]),
+        ("Darker superhero study examining vigilance and trauma", [("genre", "superhero")]),
+    ]),
+
+    # --- Negation: Genre ---
+    ("grp_121", ["attribute_genre", "negation_genre"], {"genres": ["Thriller"], "excluded_genres": ["Horror"]}, [
+        ("Edge-of-your-seat thriller, no horror", [("genre", "thriller"), ("excluded_genre", "horror")]),
+        ("Tight suspense thriller, not horror", [("genre", "thriller"), ("excluded_genre", "horror")]),
+    ]),
+    ("grp_122", ["attribute_genre", "negation_genre", "affective_outcome"], {"genres": ["Drama"], "excluded_genres": ["Romance"]}, [
+        ("Moving friendship drama that makes me tear up without romance", [("genre", "drama"), ("excluded_genre", "romance")]),
+        ("Deeply emotional drama about siblings, no romance", [("genre", "drama"), ("excluded_genre", "romance")]),
+    ]),
+    ("grp_123", ["attribute_genre", "negation_genre"], {"genres": ["Science Fiction"], "excluded_genres": ["Action"]}, [
+        ("Philosophical sci-fi without action", [("genre", "sci-fi"), ("excluded_genre", "action")]),
+        ("Quiet ideas-driven science fiction, no action", [("genre", "science fiction"), ("excluded_genre", "action")]),
+    ]),
+    ("grp_124", ["negation_genre", "affective_tone"], {"excluded_genres": ["Comedy"]}, [
+        ("Serious bleak character study, no comedy", [("excluded_genre", "comedy")]),
+        ("Dead-serious somber mood, not comedy", [("excluded_genre", "comedy")]),
+    ]),
+    ("grp_125", ["attribute_genre", "negation_genre", "attribute_era"], {"genres": ["Drama"], "excluded_genres": ["War"], "year_min": 1990, "year_max": 1999}, [
+        ("90s period drama, no war", [("era", "90s"), ("genre", "drama"), ("excluded_genre", "war")]),
+        ("1990s human drama without war", [("era", "1990s"), ("genre", "drama"), ("excluded_genre", "war")]),
+    ]),
+    ("grp_126", ["attribute_genre", "negation_genre"], {"genres": ["Family"], "excluded_genres": ["Animation"]}, [
+        ("Live-action wholesome family film, not animation", [("genre", "family"), ("excluded_genre", "animation")]),
+        ("Charming family live-action pick, no animation", [("genre", "family"), ("excluded_genre", "animation")]),
+    ]),
+    ("grp_127", ["negation_genre", "thematic_plot"], {"excluded_genres": ["Documentary"]}, [
+        ("Narrative feature about investigative journalism, except documentary", [("excluded_genre", "documentary")]),
+        ("Fictional newsroom cover-up story, minus documentary", [("excluded_genre", "documentary")]),
+    ]),
+    ("grp_128", ["attribute_genre", "negation_genre"], {"genres": ["Mystery"], "excluded_genres": ["Thriller"]}, [
+        ("Cozy low-stakes puzzle mystery, not thriller", [("genre", "mystery"), ("excluded_genre", "thriller")]),
+        ("Gentle whodunnit mystery without thriller", [("genre", "mystery"), ("excluded_genre", "thriller")]),
+    ]),
+    ("grp_129", ["attribute_genre", "negation_genre"], {"genres": ["Comedy"], "excluded_genres": ["Romance"]}, [
+        ("Smart ensemble comedy, not a rom-com", [("genre", "comedy"), ("excluded_genre", "rom-com")]),
+        ("Sharp workplace comedy without romance", [("genre", "comedy"), ("excluded_genre", "romance")]),
+    ]),
+    ("grp_130", ["attribute_genre", "negation_genre", "sensory_visual"], {"genres": ["Crime"], "excluded_genres": ["Western"]}, [
+        ("Sun-scorched dusty desert crime story, no western", [("genre", "crime"), ("excluded_genre", "western")]),
+        ("Arid modern border crime film, not western", [("genre", "crime"), ("excluded_genre", "western")]),
+    ]),
+    ("grp_131", ["negation_genre", "sensory_pacing"], {"excluded_genres": ["Music"]}, [
+        ("Passionate backstage music-industry story with electric rhythm, not musical", [("excluded_genre", "musical")]),
+        ("High-tempo tale about touring musicians without musical numbers", [("excluded_genre", "musical")]),
+    ]),
+    ("grp_132", ["attribute_genre", "negation_genre", "attribute_language_country"], {"genres": ["Drama"], "excluded_genres": ["Science Fiction"], "language": "ja"}, [
+        ("Grounded Japanese drama, no sci-fi", [("language_country", "Japanese"), ("genre", "drama"), ("excluded_genre", "sci-fi")]),
+        ("Realistic human drama from Japan, not science fiction", [("genre", "drama"), ("language_country", "Japan"), ("excluded_genre", "science fiction")]),
+    ]),
+
+    # --- Negation: Content ---
+    ("grp_133", ["attribute_genre", "negation_content"], {"genres": ["Science Fiction"], "excluded_terms": ["aliens"]}, [
+        ("Grounded sci-fi without aliens", [("genre", "sci-fi"), ("excluded_term", "aliens")]),
+        ("Near-future science fiction with no aliens", [("genre", "science fiction"), ("excluded_term", "aliens")]),
+    ]),
+    ("grp_134", ["attribute_genre", "negation_content"], {"genres": ["Horror"], "excluded_terms": ["jump scares"]}, [
+        ("Eerie atmospheric horror with no jump scares", [("genre", "horror"), ("excluded_term", "jump scares")]),
+        ("Creeping dread horror without jump scares", [("genre", "horror"), ("excluded_term", "jump scares")]),
+    ]),
+    ("grp_135", ["attribute_genre", "negation_content", "thematic_plot"], {"genres": ["Crime"], "excluded_terms": ["guns"]}, [
+        ("Clever heist crime movie with no guns", [("genre", "crime"), ("excluded_term", "guns")]),
+        ("White-collar crime caper without guns", [("genre", "crime"), ("excluded_term", "guns")]),
+    ]),
+    ("grp_136", ["attribute_genre", "negation_content"], {"genres": ["Science Fiction"], "excluded_terms": ["time travel"]}, [
+        ("Hard space-exploration sci-fi without time travel", [("genre", "sci-fi"), ("excluded_term", "time travel")]),
+        ("Plausible orbital survival science fiction with no time travel", [("genre", "science fiction"), ("excluded_term", "time travel")]),
+    ]),
+    ("grp_137", ["attribute_genre", "negation_content", "affective_tone"], {"genres": ["Romance"], "excluded_terms": ["love triangle"]}, [
+        ("Tender grown-up romance without a love triangle", [("genre", "romance"), ("excluded_term", "love triangle")]),
+        ("Sincere low-key romance with no love triangle", [("genre", "romance"), ("excluded_term", "love triangle")]),
+    ]),
+    ("grp_138", ["attribute_genre", "negation_content"], {"genres": ["Thriller"], "excluded_terms": ["gore"]}, [
+        ("Smart cat-and-mouse thriller without gore", [("genre", "thriller"), ("excluded_term", "gore")]),
+        ("Clean psychological thriller with no gore", [("genre", "thriller"), ("excluded_term", "gore")]),
+    ]),
+    ("grp_139", ["attribute_genre", "negation_content", "affective_outcome"], {"genres": ["Comedy"], "excluded_terms": ["secondhand embarrassment"]}, [
+        ("Warm genuinely funny comedy without secondhand embarrassment", [("genre", "comedy"), ("excluded_term", "secondhand embarrassment")]),
+        ("Feel-good crowd-pleasing comedy with no secondhand embarrassment", [("genre", "comedy"), ("excluded_term", "secondhand embarrassment")]),
+    ]),
+    ("grp_140", ["negation_content", "thematic_plot"], {"excluded_terms": ["superheroes"]}, [
+        ("Mythic ancient quest about lost kingdoms without superheroes", [("excluded_term", "superheroes")]),
+        ("Grounded vigilante survival story with no superheroes", [("excluded_term", "superheroes")]),
+    ]),
+    ("grp_141", ["negation_content", "sensory_visual"], {"excluded_terms": ["flashing lights"]}, [
+        ("Softly lit nighttime story without flashing lights", [("excluded_term", "flashing lights")]),
+        ("Calm warm visual storytelling with no flashing lights", [("excluded_term", "flashing lights")]),
+    ]),
+    ("grp_142", ["attribute_genre", "negation_content"], {"genres": ["Fantasy"], "excluded_terms": ["chosen one"]}, [
+        ("Weird grounded fantasy without a chosen one", [("genre", "fantasy"), ("excluded_term", "chosen one")]),
+        ("Small-scale folkloric fantasy with no chosen one", [("genre", "fantasy"), ("excluded_term", "chosen one")]),
+    ]),
+    ("grp_143", ["negation_content", "thematic_plot", "attribute_era"], {"excluded_terms": ["cheesy twist"], "year_min": 2000, "year_max": 2015}, [
+        ("Earned puzzle about missing memory between 2000 and 2015 without a cheesy twist", [("era", "between 2000 and 2015"), ("excluded_term", "cheesy twist")]),
+        ("Tightly plotted amnesia tale 2000-2015 with no cheesy twist", [("era", "2000-2015"), ("excluded_term", "cheesy twist")]),
+    ]),
+    ("grp_144", ["attribute_genre", "negation_content"], {"genres": ["War"], "excluded_terms": ["jingoism"]}, [
+        ("Anti-war survival film without jingoism", [("genre", "war"), ("excluded_term", "jingoism")]),
+        ("Sobering war portrait with no jingoism", [("genre", "war"), ("excluded_term", "jingoism")]),
+    ]),
+
+    # --- Thematic & plot situations ---
+    ("grp_145", ["thematic_plot", "affective_tone"], {}, [
+        ("Watching a perfectionist slowly unravel under obsessive ambition", []),
+        ("Dark psychological decline driven by jealousy and artistic obsession", []),
+    ]),
+    ("grp_146", ["thematic_plot", "affective_outcome"], {}, [
+        ("Heartwarming found-family road trip that restores my faith in people", []),
+        ("Bittersweet story of strangers bonding on a cross-country drive that warms me", []),
+    ]),
+    ("grp_147", ["thematic_plot", "attribute_genre"], {"genres": ["Mystery"]}, [
+        ("Mystery built around an unreliable narrator hiding their guilt", [("genre", "mystery")]),
+        ("Contradictory witness testimonies in a shifting mystery", [("genre", "mystery")]),
+    ]),
+    ("grp_148", ["thematic_plot", "attribute_language_country"], {"language": "ko"}, [
+        ("Korean story exposing class divide between two families", [("language_country", "Korean")]),
+        ("Social inequality and dark ambition in modern Korea", [("language_country", "Korea")]),
+    ]),
+    ("grp_149", ["thematic_plot", "attribute_genre", "attribute_era"], {"genres": ["Drama"], "year_min": 2010, "year_max": 2024}, [
+        ("2010-2024 drama about immigrant memory and unspoken regret", [("era", "2010-2024"), ("genre", "drama")]),
+        ("Cross-cultural longing and lost paths between 2010 and 2024 in a drama", [("era", "between 2010 and 2024"), ("genre", "drama")]),
+    ]),
+    ("grp_150", ["thematic_plot", "sensory_visual"], {}, [
+        ("Confined submarine or arctic outpost survival in freezing isolation", []),
+        ("Claustrophobic snowbound cabin paranoia with growing distrust", []),
+    ]),
+    ("grp_151", ["thematic_plot", "negation_genre"], {"excluded_genres": ["Horror"]}, [
+        ("Grief, aging, and reconciling with an estranged parent, no horror", [("excluded_genre", "horror")]),
+        ("Quiet parent-child reconciliation after years apart, not horror", [("excluded_genre", "horror")]),
+    ]),
+    ("grp_152", ["thematic_plot", "attribute_genre"], {"genres": ["Crime"]}, [
+        ("Botched bank heist crime where loyalties collapse inside one room", [("genre", "crime")]),
+        ("Metronomic jewel crime gone wrong over a single frantic night", [("genre", "crime")]),
+    ]),
+    ("grp_153", ["thematic_plot", "affective_outcome", "negation_content"], {"excluded_terms": ["cynicism"]}, [
+        ("Story of everyday solidarity and second chances that leaves me hopeful with no cynicism", [("excluded_term", "cynicism")]),
+        ("Community coming together to save something small that warms my heart without cynicism", [("excluded_term", "cynicism")]),
+    ]),
+    ("grp_154", ["thematic_plot", "attribute_genre"], {"genres": ["History", "Drama"]}, [
+        ("Historical newsroom drama uncovering a deep institutional cover-up", [("genre", "historical"), ("genre", "drama")]),
+        ("Whistleblower vs corporate surveillance in a history drama", [("genre", "history"), ("genre", "drama")]),
+    ]),
+
+    # --- False-negation controls (NO negation_genre or negation_content!) ---
+    ("grp_155", ["affective_tone", "attribute_era", "attribute_genre"], {"year_min": 1990, "year_max": 1999, "genres": ["Comedy"]}, [
+        ("No idea what to watch tonight, maybe a cozy 90s comedy", [("era", "90s"), ("genre", "comedy")]),
+        ("Honestly no clue what mood I am in, just a warm 1990s comedy", [("era", "1990s"), ("genre", "comedy")]),
+    ]),
+    ("grp_156", ["attribute_language_country", "attribute_genre", "affective_outcome"], {"language": "en", "genres": ["Mystery"]}, [
+        ("Without a doubt the cleverest British mystery to keep me guessing", [("language_country", "British"), ("genre", "mystery")]),
+        ("No doubt a sharp UK whodunnit mystery will hook me fast", [("language_country", "UK"), ("genre", "mystery")]),
+    ]),
+    ("grp_157", ["attribute_genre", "sensory_pacing"], {"genres": ["Crime", "Thriller"]}, [
+        ("No spoilers please, just recommend a fast-paced crime thriller", [("genre", "crime"), ("genre", "thriller")]),
+        ("Without any spoilers, point me to a relentless crime thriller", [("genre", "crime"), ("genre", "thriller")]),
+    ]),
+    ("grp_158", ["attribute_genre", "affective_tone"], {"genres": ["Romance"]}, [
+        ("No matter what, I love a bittersweet rainy-day romance", [("genre", "romance")]),
+        ("Not gonna lie, I just crave a wistful romance tonight", [("genre", "romance")]),
+    ]),
+
+    # --- Rich cross-intent compound queries ---
+    ("grp_159", ["person_actor", "similarity_vibe", "sensory_visual"], {"actors": ["Ryan Gosling"], "reference_titles": ["Blade Runner"]}, [
+        ("Neon rainy cyberpunk mood like Blade Runner starring Ryan Gosling", [("reference_title", "Blade Runner"), ("actor", "Ryan Gosling")]),
+        ("Nocturnal drenched city glow similar to Blade Runner featuring Ryan Gosling", [("reference_title", "Blade Runner"), ("actor", "Ryan Gosling")]),
+    ]),
+    ("grp_160", ["person_director", "similarity_plot", "attribute_language_country", "attribute_genre"], {"directors": ["Bong Joon Ho"], "reference_titles": ["Memories of Murder"], "language": "ko", "genres": ["Crime"]}, [
+        ("Korean crime puzzle like Memories of Murder directed by Bong Joon Ho", [("language_country", "Korean"), ("genre", "crime"), ("reference_title", "Memories of Murder"), ("director", "Bong Joon Ho")]),
+        ("South Korean small-town crime investigation similar to Memories of Murder by director Bong Joon Ho", [("language_country", "South Korean"), ("genre", "crime"), ("reference_title", "Memories of Murder"), ("director", "Bong Joon Ho")]),
+    ]),
+    ("grp_161", ["person_actor", "person_director", "attribute_genre"], {"actors": ["Emma Stone"], "directors": ["Yorgos Lanthimos"], "genres": ["Comedy"]}, [
+        ("Absurd dark comedy directed by Yorgos Lanthimos starring Emma Stone", [("genre", "comedy"), ("director", "Yorgos Lanthimos"), ("actor", "Emma Stone")]),
+        ("Wickedly strange comedy with Emma Stone by director Yorgos Lanthimos", [("genre", "comedy"), ("actor", "Emma Stone"), ("director", "Yorgos Lanthimos")]),
+    ]),
+    ("grp_162", ["person_actor", "sensory_pacing", "affective_outcome", "attribute_language_country"], {"actors": ["Song Kang-ho"], "language": "ko"}, [
+        ("Slow-burn Korean suspense with Song Kang-ho that leaves my jaw on the floor", [("language_country", "Korean"), ("actor", "Song Kang-ho")]),
+        ("Patient gripping performance by Song Kang-ho from Korea that leaves me speechless", [("actor", "Song Kang-ho"), ("language_country", "Korea")]),
+    ]),
+    ("grp_163", ["similarity_plot", "negation_genre", "attribute_era"], {"reference_titles": ["Inception"], "excluded_genres": ["Horror"], "year_min": 2005, "year_max": 2020}, [
+        ("Mind-bending heist premise like Inception between 2005 and 2020, no horror", [("reference_title", "Inception"), ("era", "between 2005 and 2020"), ("excluded_genre", "horror")]),
+        ("Layered dream-logic caper similar to Inception 2005-2020, not horror", [("reference_title", "Inception"), ("era", "2005-2020"), ("excluded_genre", "horror")]),
+    ]),
+    ("grp_164", ["similarity_vibe", "sensory_pacing", "negation_content"], {"reference_titles": ["Before Sunrise"], "excluded_terms": ["cynicism"]}, [
+        ("Unhurried walk-and-talk night mood like Before Sunrise without cynicism", [("reference_title", "Before Sunrise"), ("excluded_term", "cynicism")]),
+        ("Gentle dawn-lit wandering rhythm similar to Before Sunrise with no cynicism", [("reference_title", "Before Sunrise"), ("excluded_term", "cynicism")]),
+    ]),
+    ("grp_165", ["person_director", "affective_outcome", "sensory_pacing"], {"directors": ["Barry Jenkins"]}, [
+        ("Lyrical rhythmic pacing directed by Barry Jenkins that moves me to tears", [("director", "Barry Jenkins")]),
+        ("Lush poetic cadence from director Barry Jenkins guaranteed to make me cry", [("director", "Barry Jenkins")]),
+    ]),
+    ("grp_166", ["person_director", "attribute_language_country", "negation_content"], {"directors": ["Alfonso Cuarón"], "language": "es", "excluded_terms": ["aliens"]}, [
+        ("Spanish intimate road trip directed by Alfonso Cuarón without aliens", [("language_country", "Spanish"), ("director", "Alfonso Cuarón"), ("excluded_term", "aliens")]),
+        ("Mexican coming-of-age journey from director Alfonso Cuarón with no aliens", [("language_country", "Mexican"), ("director", "Alfonso Cuarón"), ("excluded_term", "aliens")]),
+    ]),
+    ("grp_167", ["person_director", "similarity_vibe", "attribute_era"], {"directors": ["Wim Wenders"], "reference_titles": ["Lost in Translation"], "year_min": 1975, "year_max": 1990}, [
+        ("Wandering neon solitude vibes like Lost in Translation between 1975 and 1990 directed by Wim Wenders", [("reference_title", "Lost in Translation"), ("era", "between 1975 and 1990"), ("director", "Wim Wenders")]),
+        ("Drifting lonely road atmosphere similar to Lost in Translation 1975-1990 by director Wim Wenders", [("reference_title", "Lost in Translation"), ("era", "1975-1990"), ("director", "Wim Wenders")]),
+    ]),
+    ("grp_168", ["person_director", "attribute_language_country", "sensory_pacing"], {"directors": ["Abbas Kiarostami"], "language": "fa"}, [
+        ("Unhurried Iranian roadside realism directed by Abbas Kiarostami", [("language_country", "Iranian"), ("director", "Abbas Kiarostami")]),
+        ("Quiet patient humanism from Iran by director Abbas Kiarostami", [("language_country", "Iran"), ("director", "Abbas Kiarostami")]),
+    ]),
+    ("grp_169", ["person_actor", "attribute_genre", "negation_genre"], {"actors": ["Dev Patel"], "genres": ["Action"], "excluded_genres": ["Horror"]}, [
+        ("Kinetic action story starring Dev Patel, no horror", [("genre", "action"), ("actor", "Dev Patel"), ("excluded_genre", "horror")]),
+        ("Mythic action tale featuring Dev Patel, not horror", [("genre", "action"), ("actor", "Dev Patel"), ("excluded_genre", "horror")]),
+    ]),
+    ("grp_170", ["person_actor", "affective_tone", "negation_content"], {"actors": ["Andrew Scott"], "excluded_terms": ["gore"]}, [
+        ("Tender aching ghost-of-grief mood starring Andrew Scott with no gore", [("actor", "Andrew Scott"), ("excluded_term", "gore")]),
+        ("Intimate melancholic character piece featuring Andrew Scott without gore", [("actor", "Andrew Scott"), ("excluded_term", "gore")]),
+    ]),
+    ("grp_171", ["person_actor", "attribute_genre", "similarity_plot"], {"actors": ["Daniel Kaluuya"], "genres": ["Thriller"], "reference_titles": ["Get Out"]}, [
+        ("Paranoid thriller like Get Out starring Daniel Kaluuya", [("genre", "thriller"), ("reference_title", "Get Out"), ("actor", "Daniel Kaluuya")]),
+        ("Social conspiracy thriller similar to Get Out featuring Daniel Kaluuya", [("genre", "thriller"), ("reference_title", "Get Out"), ("actor", "Daniel Kaluuya")]),
+    ]),
+    ("grp_172", ["person_actor", "sensory_visual", "negation_genre"], {"actors": ["Lupita Nyong'o"], "excluded_genres": ["Comedy"]}, [
+        ("Creepy shadow-drenched atmosphere starring Lupita Nyong'o, no comedy", [("actor", "Lupita Nyong'o"), ("excluded_genre", "comedy")]),
+        ("Striking twilight eerie visuals featuring Lupita Nyong'o, not comedy", [("actor", "Lupita Nyong'o"), ("excluded_genre", "comedy")]),
+    ]),
+    ("grp_173", ["similarity_plot", "similarity_vibe", "attribute_language_country"], {"reference_titles": ["Oldboy"], "language": "ko"}, [
+        ("Twisted corridor revenge plot and visceral mood like Oldboy from Korea", [("reference_title", "Oldboy"), ("language_country", "Korea")]),
+        ("Operatic South Korean vengeance puzzle and feverish atmosphere similar to Oldboy", [("language_country", "South Korean"), ("reference_title", "Oldboy")]),
+    ]),
+    ("grp_174", ["similarity_plot", "attribute_genre", "affective_outcome"], {"reference_titles": ["La La Land"], "genres": ["Music"]}, [
+        ("Bittersweet jazz-ambition music film like La La Land that breaks me", [("genre", "music"), ("reference_title", "La La Land")]),
+        ("Dreamer-couple career-vs-love music story similar to La La Land that makes me cry", [("genre", "music"), ("reference_title", "La La Land")]),
+    ]),
+    ("grp_175", ["similarity_plot", "thematic_plot", "negation_content"], {"reference_titles": ["Everything Everywhere All at Once"], "excluded_terms": ["cynicism"]}, [
+        ("Chaotic immigrant-parents reconciliation multiverse premise like Everything Everywhere All at Once without cynicism", [("reference_title", "Everything Everywhere All at Once"), ("excluded_term", "cynicism")]),
+        ("Overwhelming mother-daughter repair story similar to Everything Everywhere All at Once with no cynicism", [("reference_title", "Everything Everywhere All at Once"), ("excluded_term", "cynicism")]),
+    ]),
+    ("grp_176", ["similarity_vibe", "sensory_visual", "attribute_language_country"], {"reference_titles": ["Seven Samurai"], "language": "ja"}, [
+        ("Wind-whipped rain, muddy village grit, and Japanese epic poise like Seven Samurai", [("language_country", "Japanese"), ("reference_title", "Seven Samurai")]),
+        ("Stark monochrome samurai atmosphere from Japan similar to Seven Samurai", [("language_country", "Japan"), ("reference_title", "Seven Samurai")]),
+    ]),
+    ("grp_177", ["similarity_plot", "attribute_era", "negation_content"], {"reference_titles": ["The Silence of the Lambs"], "year_min": 1990, "year_max": 1999, "excluded_terms": ["jump scares"]}, [
+        ("90s FBI profiler psychological duel like The Silence of the Lambs with no jump scares", [("era", "90s"), ("reference_title", "The Silence of the Lambs"), ("excluded_term", "jump scares")]),
+        ("1990s meticulous killer-interview investigation similar to The Silence of the Lambs without jump scares", [("era", "1990s"), ("reference_title", "The Silence of the Lambs"), ("excluded_term", "jump scares")]),
+    ]),
+    ("grp_179", ["person_director", "similarity_vibe", "sensory_visual"], {"directors": ["Denis Villeneuve"], "reference_titles": ["Dune"]}, [
+        ("Monumental sand-swept atmosphere like Dune directed by Denis Villeneuve", [("reference_title", "Dune"), ("director", "Denis Villeneuve")]),
+        ("Awe-inspiring desert scale and sparse texture similar to Dune from director Denis Villeneuve", [("reference_title", "Dune"), ("director", "Denis Villeneuve")]),
+    ]),
+    ("grp_180", ["person_actor", "similarity_vibe", "affective_tone"], {"actors": ["Rebecca Hall"], "reference_titles": ["The Lighthouse"]}, [
+        ("Claustrophobic eerie unraveling vibes like The Lighthouse starring Rebecca Hall", [("reference_title", "The Lighthouse"), ("actor", "Rebecca Hall")]),
+        ("Paranoid wintry isolation atmosphere similar to The Lighthouse featuring Rebecca Hall", [("reference_title", "The Lighthouse"), ("actor", "Rebecca Hall")]),
+    ]),
+    ("grp_181", ["person_director", "attribute_era", "negation_genre"], {"directors": ["Paul Thomas Anderson"], "year_min": 1997, "year_max": 2012, "excluded_genres": ["Horror"]}, [
+        ("Obsessive character epics between 1997 and 2012 directed by Paul Thomas Anderson, no horror", [("era", "between 1997 and 2012"), ("director", "Paul Thomas Anderson"), ("excluded_genre", "horror")]),
+        ("Richly scored ambition sagas 1997-2012 from director Paul Thomas Anderson, not horror", [("era", "1997-2012"), ("director", "Paul Thomas Anderson"), ("excluded_genre", "horror")]),
+    ]),
+    ("grp_182", ["person_director", "attribute_genre", "sensory_pacing"], {"directors": ["Damien Chazelle"], "genres": ["Music"]}, [
+        ("Propulsive jazz-driven music film directed by Damien Chazelle", [("genre", "music"), ("director", "Damien Chazelle")]),
+        ("Sweaty high-tempo music ambition film from director Damien Chazelle", [("genre", "music"), ("director", "Damien Chazelle")]),
+    ]),
+    ("grp_183", ["negation_genre", "negation_content", "affective_outcome"], {"excluded_genres": ["Horror"], "excluded_terms": ["sad ending"]}, [
+        ("Uplifting cozy night watch to make me smile, no horror and no sad ending", [("excluded_genre", "horror"), ("excluded_term", "sad ending")]),
+        ("Warm comforting escape that lifts my spirits, not horror and without a sad ending", [("excluded_genre", "horror"), ("excluded_term", "sad ending")]),
+    ]),
+    ("grp_184", ["negation_genre", "attribute_era", "thematic_plot"], {"excluded_genres": ["Comedy"], "year_min": 2015, "year_max": None}, [
+        ("Serious courtroom whistleblower story after 2015, no comedy", [("era", "after 2015"), ("excluded_genre", "comedy")]),
+        ("Tense corporate betrayal tale from 2015 onward, not comedy", [("era", "from 2015"), ("excluded_genre", "comedy")]),
+    ]),
+    ("grp_185", ["similarity_plot", "negation_content", "attribute_language_country"], {"reference_titles": ["Parasite"], "excluded_terms": ["gore"], "language": "ko"}, [
+        ("Clever Korean class-deception plot like Parasite with no gore", [("language_country", "Korean"), ("reference_title", "Parasite"), ("excluded_term", "gore")]),
+        ("Sharp South Korean upstairs-downstairs scheme similar to Parasite without gore", [("language_country", "South Korean"), ("reference_title", "Parasite"), ("excluded_term", "gore")]),
+    ]),
+    ("grp_186", ["affective_outcome", "sensory_visual", "attribute_era"], {"year_min": 2000, "year_max": 2009}, [
+        ("Golden-hour nostalgic 2000s film that leaves me aching happily", [("era", "2000s")]),
+        ("Warm sun-dappled 2000s indie watch that melts my stress away", [("era", "2000s")]),
+    ]),
+    ("grp_187", ["sensory_pacing", "attribute_language_country", "negation_genre"], {"language": "fr", "excluded_genres": ["Action"]}, [
+        ("Unhurried French dialogue piece with crisp footsteps and stillness, no action", [("language_country", "French"), ("excluded_genre", "action")]),
+        ("Measured quiet cinema from France driven by silence, not action", [("language_country", "France"), ("excluded_genre", "action")]),
+    ]),
+    ("grp_188", ["attribute_genre", "negation_genre", "attribute_era"], {"genres": ["Animation"], "excluded_genres": ["Music"], "year_min": 1995, "year_max": 2010}, [
+        ("Hand-drawn animation between 1995 and 2010, no musical", [("genre", "animation"), ("era", "between 1995 and 2010"), ("excluded_genre", "musical")]),
+        ("Mature animation feature 1995-2010, not musical", [("genre", "animation"), ("era", "1995-2010"), ("excluded_genre", "musical")]),
+    ]),
+    ("grp_189", ["affective_outcome", "person_actor", "attribute_era"], {"actors": ["Tilda Swinton"], "year_min": 2010, "year_max": 2024}, [
+        ("Hypnotic 2010-2024 film starring Tilda Swinton that leaves me stunned", [("era", "2010-2024"), ("actor", "Tilda Swinton")]),
+        ("Mesmerizing performance by Tilda Swinton between 2010 and 2024 that stays with me", [("actor", "Tilda Swinton"), ("era", "between 2010 and 2024")]),
+    ]),
+    ("grp_190", ["negation_content", "attribute_language_country", "attribute_genre"], {"excluded_terms": ["love triangle"], "language": "es", "genres": ["Romance"]}, [
+        ("Mature Spanish romance with no love triangle", [("language_country", "Spanish"), ("genre", "romance"), ("excluded_term", "love triangle")]),
+        ("Sincere quiet romance from Spain without a love triangle", [("genre", "romance"), ("language_country", "Spain"), ("excluded_term", "love triangle")]),
+    ]),
+    ("grp_191", ["similarity_vibe", "affective_outcome", "negation_content"], {"reference_titles": ["In the Mood for Love"], "excluded_terms": ["melodrama"]}, [
+        ("Wistful aching atmosphere like In the Mood for Love that makes me cry without melodrama", [("reference_title", "In the Mood for Love"), ("excluded_term", "melodrama")]),
+        ("Restrained devastating mood similar to In the Mood for Love with no melodrama", [("reference_title", "In the Mood for Love"), ("excluded_term", "melodrama")]),
+    ]),
+    ("grp_192", ["person_actor", "thematic_plot", "negation_genre"], {"actors": ["Willem Dafoe"], "excluded_genres": ["Comedy"]}, [
+        ("Obsessive isolation survival story starring Willem Dafoe, no comedy", [("actor", "Willem Dafoe"), ("excluded_genre", "comedy")]),
+        ("Claustrophobic test of sanity featuring Willem Dafoe, not comedy", [("actor", "Willem Dafoe"), ("excluded_genre", "comedy")]),
+    ]),
+    ("grp_193", ["similarity_plot", "attribute_era", "attribute_genre"], {"reference_titles": ["Knives Out"], "year_min": 2018, "year_max": None, "genres": ["Crime"]}, [
+        ("Clever crime puzzle like Knives Out released after 2018", [("genre", "crime"), ("reference_title", "Knives Out"), ("era", "after 2018")]),
+        ("Witty whodunnit crime caper similar to Knives Out from 2018 onward", [("genre", "crime"), ("reference_title", "Knives Out"), ("era", "from 2018")]),
+    ]),
+    ("grp_194", ["affective_tone", "sensory_visual", "negation_content"], {"excluded_terms": ["jump scares"]}, [
+        ("Eerie foggy coastal dread with cold blue tones and no jump scares", [("excluded_term", "jump scares")]),
+        ("Unsettling slow twilight paranoia in dim rooms without jump scares", [("excluded_term", "jump scares")]),
+    ]),
+    ("grp_195", ["attribute_language_country", "similarity_vibe", "sensory_pacing"], {"language": "zh", "reference_titles": ["Chungking Express"]}, [
+        ("Restless Cantonese pop rhythm and late-night neon vibe like Chungking Express", [("language_country", "Cantonese"), ("reference_title", "Chungking Express")]),
+        ("Kinetic rainy Hong Kong drift similar to Chungking Express", [("language_country", "Hong Kong"), ("reference_title", "Chungking Express")]),
+    ]),
+    ("grp_196", ["person_director", "affective_tone", "thematic_plot"], {"directors": ["David Fincher"]}, [
+        ("Cold meticulous study of forensic obsession directed by David Fincher", [("director", "David Fincher")]),
+        ("Cynical procedural story about truth slipping away from director David Fincher", [("director", "David Fincher")]),
+    ]),
+    ("grp_197", ["similarity_plot", "person_director", "sensory_pacing"], {"reference_titles": ["Zodiac"], "directors": ["David Fincher"]}, [
+        ("Methodical decades-long manhunt like Zodiac directed by David Fincher with taut pacing", [("reference_title", "Zodiac"), ("director", "David Fincher")]),
+        ("Slow-tightening investigative obsession similar to Zodiac by director David Fincher", [("reference_title", "Zodiac"), ("director", "David Fincher")]),
+    ]),
+    ("grp_198", ["similarity_vibe", "person_actor", "sensory_visual"], {"reference_titles": ["Her"], "actors": ["Joaquin Phoenix"]}, [
+        ("Soft warm futuristic glow like Her starring Joaquin Phoenix", [("reference_title", "Her"), ("actor", "Joaquin Phoenix")]),
+        ("Pastel melancholic cityscape atmosphere similar to Her featuring Joaquin Phoenix", [("reference_title", "Her"), ("actor", "Joaquin Phoenix")]),
+    ]),
+    ("grp_199", ["person_actor", "sensory_pacing", "attribute_genre"], {"actors": ["Scarlett Johansson"], "genres": ["Drama"]}, [
+        ("Quiet unhurried divorce drama starring Scarlett Johansson", [("genre", "drama"), ("actor", "Scarlett Johansson")]),
+        ("Measured understated character drama featuring Scarlett Johansson", [("genre", "drama"), ("actor", "Scarlett Johansson")]),
+    ]),
+    ("grp_200", ["person_director", "similarity_plot", "attribute_genre"], {"directors": ["Christopher Nolan"], "reference_titles": ["Memento"], "genres": ["Thriller"]}, [
+        ("Reverse-timeline amnesia thriller like Memento directed by Christopher Nolan", [("genre", "thriller"), ("reference_title", "Memento"), ("director", "Christopher Nolan")]),
+        ("Non-linear psychological thriller similar to Memento by director Christopher Nolan", [("genre", "thriller"), ("reference_title", "Memento"), ("director", "Christopher Nolan")]),
+    ]),
+    ("grp_201", ["similarity_vibe", "sensory_pacing", "attribute_era"], {"reference_titles": ["Before Sunrise"], "year_min": 1990, "year_max": 1999}, [
+        ("Unhurried nocturnal train-and-street conversation mood like Before Sunrise from the 90s", [("reference_title", "Before Sunrise"), ("era", "90s")]),
+        ("Gentle dawn-drifting 1990s walking-and-talking rhythm similar to Before Sunrise", [("era", "1990s"), ("reference_title", "Before Sunrise")]),
+    ]),
+    ("grp_202", ["person_actor", "negation_genre", "thematic_plot"], {"actors": ["Cillian Murphy"], "excluded_genres": ["Horror"]}, [
+        ("Moral weight of scientific conscience starring Cillian Murphy, no horror", [("actor", "Cillian Murphy"), ("excluded_genre", "horror")]),
+        ("Haunted biographical portrait of ambition featuring Cillian Murphy, not horror", [("actor", "Cillian Murphy"), ("excluded_genre", "horror")]),
+    ]),
+    ("grp_203", ["similarity_plot", "negation_genre", "sensory_pacing"], {"reference_titles": ["Whiplash"], "excluded_genres": ["Romance"]}, [
+        ("Relentless breathless mentor conflict like Whiplash, no romance", [("reference_title", "Whiplash"), ("excluded_genre", "romance")]),
+        ("High-tempo artistic burnout plot similar to Whiplash, not romance", [("reference_title", "Whiplash"), ("excluded_genre", "romance")]),
+    ]),
+    ("grp_204", ["similarity_vibe", "negation_content", "affective_tone"], {"reference_titles": ["Aftersun"], "excluded_terms": ["melodrama"]}, [
+        ("Quiet nostalgic summer haze like Aftersun without melodrama", [("reference_title", "Aftersun"), ("excluded_term", "melodrama")]),
+        ("Wistful sun-faded memory mood similar to Aftersun with no melodrama", [("reference_title", "Aftersun"), ("excluded_term", "melodrama")]),
+    ]),
+    ("grp_205", ["person_director", "sensory_pacing", "attribute_genre"], {"directors": ["Wes Anderson"], "genres": ["Comedy"]}, [
+        ("Crisp metronomic comedy directed by Wes Anderson with deadpan rhythm", [("genre", "comedy"), ("director", "Wes Anderson")]),
+        ("Snappy symmetrical comedy cadence from director Wes Anderson", [("genre", "comedy"), ("director", "Wes Anderson")]),
+    ]),
+    ("grp_206", ["affective_outcome", "similarity_vibe", "attribute_language_country"], {"reference_titles": ["Past Lives"], "language": "ko"}, [
+        ("Korean quiet bittersweet fate vibes like Past Lives that leave me crying", [("language_country", "Korean"), ("reference_title", "Past Lives")]),
+        ("Gentle wistful longing from Korea similar to Past Lives that breaks my heart", [("language_country", "Korea"), ("reference_title", "Past Lives")]),
+    ]),
+    ("grp_207", ["person_actor", "attribute_era", "attribute_language_country"], {"actors": ["Cate Blanchett"], "year_min": 2020, "year_max": 2029, "language": "en"}, [
+        ("English-language 2020s powerhouse study starring Cate Blanchett", [("language_country", "English"), ("era", "2020s"), ("actor", "Cate Blanchett")]),
+        ("2020s American character piece featuring Cate Blanchett", [("era", "2020s"), ("language_country", "American"), ("actor", "Cate Blanchett")]),
+    ]),
+    ("grp_208", ["negation_genre", "attribute_language_country", "sensory_pacing"], {"excluded_genres": ["Horror"], "language": "ja"}, [
+        ("Slow meditative Japanese cinema rhythm, no horror", [("language_country", "Japanese"), ("excluded_genre", "horror")]),
+        ("Unhurried quiet cinema from Japan, not horror", [("language_country", "Japan"), ("excluded_genre", "horror")]),
+    ]),
+    ("grp_209", ["affective_outcome", "attribute_genre"], {"genres": ["Family"]}, [
+        ("Warm family watch to cheer up the whole living room", [("genre", "family")]),
+        ("Comforting family pick that leaves everyone smiling", [("genre", "family")]),
+    ]),
+    ("grp_210", ["sensory_visual", "attribute_genre", "attribute_era"], {"genres": ["Western"], "year_min": 1960, "year_max": 1969}, [
+        ("Dusty wide-shot 1960s western filled with squinting close-ups", [("era", "1960s"), ("genre", "western")]),
+        ("Sun-baked 60s western steeped in red rock silhouettes", [("era", "60s"), ("genre", "western")]),
+    ]),
+    ("grp_211", ["person_actor", "thematic_plot"], {"actors": ["Mads Mikkelsen"]}, [
+        ("Small-town scapegoat injustice starring Mads Mikkelsen", [("actor", "Mads Mikkelsen")]),
+        ("Wrongful accusation tear-down featuring Mads Mikkelsen", [("actor", "Mads Mikkelsen")]),
+    ]),
+    ("grp_212", ["person_director", "thematic_plot"], {"directors": ["Sofia Coppola"]}, [
+        ("Gilded boredom and adolescent restlessness directed by Sofia Coppola", [("director", "Sofia Coppola")]),
+        ("Coming-of-age isolation inside luxury from director Sofia Coppola", [("director", "Sofia Coppola")]),
+    ]),
+    ("grp_213", ["similarity_plot", "attribute_genre"], {"reference_titles": ["Interstellar"], "genres": ["Science Fiction"]}, [
+        ("Space-station wormhole rescue sci-fi like Interstellar", [("genre", "sci-fi"), ("reference_title", "Interstellar")]),
+        ("Deep-cosmos relativity mission science fiction similar to Interstellar", [("genre", "science fiction"), ("reference_title", "Interstellar")]),
+    ]),
+    ("grp_214", ["similarity_vibe", "affective_tone"], {"reference_titles": ["Moonlight"]}, [
+        ("Tender guarded vulnerability vibes like Moonlight", [("reference_title", "Moonlight")]),
+        ("Intimate yearning and quiet grace similar to Moonlight", [("reference_title", "Moonlight")]),
+    ]),
+    ("grp_215", ["attribute_era", "attribute_language_country", "thematic_plot"], {"year_min": 2010, "year_max": 2019, "language": "es"}, [
+        ("2010s Spanish portrait of memory and caregiving", [("era", "2010s"), ("language_country", "Spanish")]),
+        ("Class divide inside a household from Mexico in the 2010s", [("language_country", "Mexico"), ("era", "2010s")]),
+    ]),
+    ("grp_216", ["negation_genre", "affective_outcome"], {"excluded_genres": ["Drama"]}, [
+        ("High-energy escapism that gets me laughing fast, no drama", [("excluded_genre", "drama")]),
+        ("Pure joyful distraction to reset my brain, not drama", [("excluded_genre", "drama")]),
+    ]),
+    ("grp_217", ["negation_content", "attribute_genre"], {"excluded_terms": ["serial killers"], "genres": ["Mystery"]}, [
+        ("Clever puzzle mystery without serial killers", [("genre", "mystery"), ("excluded_term", "serial killers")]),
+        ("Intellectual riddle mystery with no serial killers", [("genre", "mystery"), ("excluded_term", "serial killers")]),
+    ]),
+    ("grp_218", ["sensory_pacing", "thematic_plot"], {}, [
+        ("Single-room jury deliberation escalating at a brisk conversational tempo", []),
+        ("Real-time countdown negotiation escalating minute by minute", []),
+    ]),
+    ("grp_219", ["attribute_genre", "sensory_visual", "affective_tone"], {"genres": ["Fantasy"]}, [
+        ("Moody moss-covered dark fantasy brimming with mist", [("genre", "fantasy")]),
+        ("Melancholic twilight fairytale fantasy with tactile magic", [("genre", "fantasy")]),
+    ]),
+    ("grp_220", ["person_actor", "attribute_language_country", "affective_tone"], {"actors": ["Song Kang-ho"], "language": "ko"}, [
+        ("Darkly ironic Korean mood starring Song Kang-ho", [("language_country", "Korean"), ("actor", "Song Kang-ho")]),
+        ("Wry grim South Korean portrait featuring Song Kang-ho", [("language_country", "South Korean"), ("actor", "Song Kang-ho")]),
+    ]),
+]
+
+
+def _check_label_extraction_consistency(rec: dict[str, Any], genre_aliases: dict[str, str]) -> None:
+    ext = rec["extraction"]
+    labels = set(rec["fine_labels"])
+    spans = rec["spans"]
+    checks = [
+        ("attribute_genre", bool(ext["genres"])),
+        ("attribute_era", ext["year_min"] is not None or ext["year_max"] is not None),
+        ("attribute_language_country", ext["language"] is not None),
+        ("person_actor", bool(ext["actors"])),
+        ("person_director", bool(ext["directors"])),
+        ("negation_genre", bool(ext["excluded_genres"])),
+        ("negation_content", bool(ext["excluded_terms"])),
+    ]
+    for lbl, has_val in checks:
+        if (lbl in labels) != has_val:
+            raise ValueError(f"{rec['query_id']}: mismatch between label {lbl} and extraction {ext}")
+    if ("similarity_plot" in labels or "similarity_vibe" in labels) != bool(ext["reference_titles"]):
+        raise ValueError(f"{rec['query_id']}: similarity label vs reference_titles mismatch")
+
+    genre_spans = [genre_aliases.get(s["value"].lower()) for s in spans if s["field"] == "genre"]
+    if sorted(set(genre_spans)) != sorted(ext["genres"]):
+        raise ValueError(f"{rec['query_id']}: genre spans {genre_spans} != extraction.genres {ext['genres']}")
+
+
+def build_dataset() -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    taxonomy = load_yaml(REPO_ROOT / "configs" / "taxonomy.yaml")
+    schema_path = REPO_ROOT / "schemas" / "dataset_record.schema.json"
+    fine_to_broad: dict[str, str] = taxonomy["fine_to_broad"]
+    label_order: list[str] = taxonomy["label_order"]
+    genre_aliases: dict[str, str] = taxonomy["genre_aliases"]
+    compound_min = int(taxonomy["compound_rule"]["min_distinct_broad_categories"])
+    people_set, title_map = load_lexicons()
+
+    records: list[dict[str, Any]] = []
+    q_counter = 1
+
+    for group_id, fine_labels, ext_overrides, entries in GROUP_SPECS:
+        for lbl in fine_labels:
+            if lbl not in fine_to_broad:
+                raise ValueError(f"Unknown label {lbl} in {group_id}")
+        broad_labels = sorted({fine_to_broad[lbl] for lbl in fine_labels})
+        is_compound = len(broad_labels) >= compound_min
+
+        ext = _empty_extraction()
+        ext.update(ext_overrides)
+        for p in ext["actors"] + ext["directors"]:
+            if people_set and p.lower() not in people_set:
+                raise ValueError(f"Person {p!r} in {group_id} missing from backend/people_index.json")
+        for t in ext["reference_titles"]:
+            if title_map and t.lower() not in title_map:
+                raise ValueError(f"Title {t!r} in {group_id} missing from backend/galaxy_points.json")
+
+        for text, span_specs in entries:
+            occupied: list[tuple[int, int]] = []
+            spans = []
+            for field, surface in span_specs:
+                start, end = _find_span(text, surface, occupied)
+                spans.append({"field": field, "value": text[start:end], "start": start, "end": end})
+
+            rec = {
+                "query_id": f"d1_q{q_counter:04d}",
+                "group_id": group_id,
+                "text": text,
+                "fine_labels": list(fine_labels),
+                "broad_labels": broad_labels,
+                "is_compound": is_compound,
+                "extraction": json.loads(json.dumps(ext)),
+                "spans": spans,
+                "provenance": {
+                    "source": "course_curated_d1",
+                    "collection_batch": "d1_v1",
+                    "is_synthetic": True,
+                    "annotation_method": "rubric_curated_and_verified",
+                    "reviewed_by": "mwahaj36",
+                    "review_status": "approved",
+                    "revision": 1,
+                },
+            }
+            _check_label_extraction_consistency(rec, genre_aliases)
+            records.append(rec)
+            q_counter += 1
+
+    shingles = [(r["query_id"], r["group_id"], _shingles(r["text"])) for r in records]
+    max_cross_sim = 0.0
+    max_pair = ("", "")
+    for i in range(len(shingles)):
+        qid_a, grp_a, sh_a = shingles[i]
+        for j in range(i + 1, len(shingles)):
+            qid_b, grp_b, sh_b = shingles[j]
+            if grp_a == grp_b:
+                continue
+            sim = jaccard_similarity(sh_a, sh_b)
+            if sim > max_cross_sim:
+                max_cross_sim = sim
+                max_pair = (qid_a, qid_b)
+    if max_cross_sim >= 0.80:
+        raise ValueError(f"Cross-group near-duplicate too high ({max_cross_sim:.3f}) between {max_pair}")
+
+    lbl_records: Counter[str] = Counter({lbl: 0 for lbl in label_order})
+    lbl_groups: dict[str, set[str]] = defaultdict(set)
+    for r in records:
+        for lbl in r["fine_labels"]:
+            lbl_records[lbl] += 1
+            lbl_groups[lbl].add(r["group_id"])
+
+    validate_records(records, taxonomy, schema_path, require_approved=True)
+
+    raw_path = REPO_ROOT / "data" / "raw" / "d1_queries.jsonl"
+    raw_path.parent.mkdir(parents=True, exist_ok=True)
+    raw_path.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in records), encoding="utf-8")
+    raw_sha = sha256_file(raw_path)
+
+    provenance = {
+        "dataset_id": "subtext_d1_queries_v1",
+        "path": "data/raw/d1_queries.jsonl",
+        "sha256": raw_sha,
+        "taxonomy_version": taxonomy["version"],
+        "total_records": len(records),
+        "unique_groups": len({r["group_id"] for r in records}),
+        "is_synthetic": True,
+        "synthetic_share": 1.0,
+        "disclosure": (
+            "Course-curated synthetic D1 training, validation, and regression dataset grounded in "
+            "approved repository people and title indices. Independent live research confirmation queries "
+            "are deliberately excluded."
+        ),
+        "reviewed_by": "mwahaj36",
+        "max_cross_group_jaccard": round(max_cross_sim, 4),
+        "label_record_counts": {lbl: lbl_records[lbl] for lbl in label_order},
+        "label_group_counts": {lbl: len(lbl_groups[lbl]) for lbl in label_order},
+    }
+    prov_path = REPO_ROOT / "data" / "manifests" / "dataset_provenance.json"
+    prov_path.parent.mkdir(parents=True, exist_ok=True)
+    prov_path.write_text(json.dumps(provenance, indent=2) + "\n", encoding="utf-8")
+    return records, provenance
+
+
+if __name__ == "__main__":
+    _, prov = build_dataset()
+    print(json.dumps({
+        "total_records": prov["total_records"],
+        "unique_groups": prov["unique_groups"],
+        "min_label_records": min(prov["label_record_counts"].values()),
+        "min_label_groups": min(prov["label_group_counts"].values()),
+        "max_cross_group_jaccard": prov["max_cross_group_jaccard"],
+        "label_record_counts": prov["label_record_counts"],
+    }, indent=2))
