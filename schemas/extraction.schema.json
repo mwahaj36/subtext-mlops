@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SubtextBoundedExtraction",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "actors",
+    "directors",
+    "genres",
+    "year_min",
+    "year_max",
+    "language",
+    "excluded_genres",
+    "excluded_terms",
+    "reference_titles"
+  ],
+  "properties": {
+    "actors": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "directors": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "genres": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "year_min": {
+      "type": ["integer", "null"],
+      "minimum": 1888,
+      "maximum": 2030
+    },
+    "year_max": {
+      "type": ["integer", "null"],
+      "minimum": 1888,
+      "maximum": 2030
+    },
+    "language": {
+      "type": ["string", "null"],
+      "minLength": 2,
+      "maxLength": 16
+    },
+    "excluded_genres": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "excluded_terms": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "reference_titles": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

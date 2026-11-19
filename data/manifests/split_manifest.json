@@ -1,0 +1,80 @@
+{
+  "seed": 42,
+  "raw_dataset": "data/raw/d1_queries.jsonl",
+  "raw_sha256": "93b8888f69318cc801aee52b295dbb6c63447d9b1eb9dfa889574844c83462f3",
+  "total_records": 455,
+  "total_groups": 219,
+  "split_sha256": {
+    "train": "4adf8455a2190b54b79313ba3b45dc0f2a569e7bbb35a8611f8a21b23df6c29c",
+    "val": "a55c6b889b79de151db0e55f48a148231bb1d0bd7b61cca11d3d6cc2e57f9342",
+    "course_regression": "d94d739435f347f9adbff2563a8282ee7993834d3a216a3708abfbe2d4f3a996"
+  },
+  "splits": {
+    "train": {
+      "path": "data/processed/train.jsonl",
+      "sha256": "4adf8455a2190b54b79313ba3b45dc0f2a569e7bbb35a8611f8a21b23df6c29c",
+      "num_records": 331,
+      "num_groups": 158,
+      "label_counts": {
+        "affective_outcome": 54,
+        "affective_tone": 59,
+        "sensory_visual": 64,
+        "sensory_pacing": 53,
+        "person_actor": 50,
+        "person_director": 50,
+        "similarity_plot": 43,
+        "similarity_vibe": 49,
+        "attribute_genre": 156,
+        "attribute_era": 64,
+        "attribute_language_country": 62,
+        "negation_genre": 52,
+        "negation_content": 57,
+        "thematic_plot": 67
+      }
+    },
+    "val": {
+      "path": "data/processed/val.jsonl",
+      "sha256": "a55c6b889b79de151db0e55f48a148231bb1d0bd7b61cca11d3d6cc2e57f9342",
+      "num_records": 58,
+      "num_groups": 29,
+      "label_counts": {
+        "affective_outcome": 10,
+        "affective_tone": 8,
+        "sensory_visual": 10,
+        "sensory_pacing": 10,
+        "person_actor": 8,
+        "person_director": 8,
+        "similarity_plot": 10,
+        "similarity_vibe": 6,
+        "attribute_genre": 30,
+        "attribute_era": 10,
+        "attribute_language_country": 14,
+        "negation_genre": 10,
+        "negation_content": 12,
+        "thematic_plot": 10
+      }
+    },
+    "course_regression": {
+      "path": "data/processed/course_regression.jsonl",
+      "sha256": "d94d739435f347f9adbff2563a8282ee7993834d3a216a3708abfbe2d4f3a996",
+      "num_records": 66,
+      "num_groups": 32,
+      "label_counts": {
+        "affective_outcome": 12,
+        "affective_tone": 12,
+        "sensory_visual": 10,
+        "sensory_pacing": 10,
+        "person_actor": 10,
+        "person_director": 6,
+        "similarity_plot": 10,
+        "similarity_vibe": 10,
+        "attribute_genre": 24,
+        "attribute_era": 12,
+        "attribute_language_country": 12,
+        "negation_genre": 10,
+        "negation_content": 12,
+        "thematic_plot": 12
+      }
+    }
+  }
+}

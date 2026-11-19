@@ -1,0 +1,39 @@
+version: "1.0.0"
+
+routes:
+  similarity_anchor:
+    description: "Query references a known movie title or expresses plot/vibe similarity; anchor dense retrieval on the reference film and apply extracted exclusions/filters."
+    trigger_labels:
+      - similarity_plot
+      - similarity_vibe
+    requires_reference_title: true
+
+  structured_filter:
+    description: "Query contains hard metadata constraints (actor, director, genre, era, language, or explicit exclusions) with or without semantic descriptors."
+    trigger_labels:
+      - person_actor
+      - person_director
+      - attribute_genre
+      - attribute_era
+      - attribute_language_country
+      - negation_genre
+      - negation_content
+
+  hybrid_concept:
+    description: "Query relies primarily on affective, sensory, or thematic cues best served by dense vector + TMDB concept-index scoring."
+    trigger_labels:
+      - affective_outcome
+      - affective_tone
+      - sensory_visual
+      - sensory_pacing
+      - thematic_plot
+
+  dense_semantic:
+    description: "Fallback pure semantic embedding route when no fine intent or hard constraint crosses threshold."
+
+llm_fallback:
+  enabled_in_d1: false
+  description: "Selective LLM escalation thresholds tuned on validation during Deliverable 2 serving integration."
+  max_confidence_margin_for_escalation: 0.15
+  escalate_on_empty_predictions: true
+  escalate_on_unresolved_compound_negation: true
