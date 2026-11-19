@@ -1,0 +1,225 @@
+schema: '2.0'
+stages:
+  split_and_validate:
+    cmd: python -m ml.split --config configs/train.yaml
+    deps:
+    - path: configs/taxonomy.yaml
+      hash: md5
+      md5: 769fc8248aeefdd2106b5537f51fa005
+      size: 3695
+    - path: configs/train.yaml
+      hash: md5
+      md5: f5f5c038afdec0386f88749121f0bc0e
+      size: 1455
+    - path: data/manifests/dataset_provenance.json
+      hash: md5
+      md5: 07938b58f152e7ab54dca6ce6d76eec6
+      size: 1452
+    - path: data/raw/d1_queries.jsonl
+      hash: md5
+      md5: d115780c1b7ed690fcf529d8afce9aea
+      size: 370299
+    - path: ml/split.py
+      hash: md5
+      md5: 2f01ddd51ae0266cf68ad02a1ea3cc6e
+      size: 8426
+    - path: ml/validate.py
+      hash: md5
+      md5: 0f20b446b135cfadd25daa2068f4df77
+      size: 17285
+    - path: schemas/dataset_record.schema.json
+      hash: md5
+      md5: fb14b27a575ea686334441ea274df1a2
+      size: 2457
+    - path: schemas/extraction.schema.json
+      hash: md5
+      md5: 63a395b3f399949ce53ce74d75ae4d87
+      size: 1349
+    outs:
+    - path: data/manifests/split_manifest.json
+      hash: md5
+      md5: 989e8f535421b5241517c3415e72d4a9
+      size: 2588
+    - path: data/manifests/validation_report.json
+      hash: md5
+      md5: 3783ef26a17d9992a685ecf342c31287
+      size: 3888
+    - path: data/processed/course_regression.jsonl
+      hash: md5
+      md5: 834c80df1f4dd21b247d627f67bd9b3d
+      size: 52632
+    - path: data/processed/train.jsonl
+      hash: md5
+      md5: 9859e6b549f3c6c492c1c3b6aa9e3a4b
+      size: 269970
+    - path: data/processed/val.jsonl
+      hash: md5
+      md5: 3b3c6941698154d2cd38937461fdf9a2
+      size: 47697
+  train_baseline:
+    cmd: python -m ml.train_baseline --config configs/train.yaml
+    deps:
+    - path: configs/taxonomy.yaml
+      hash: md5
+      md5: 769fc8248aeefdd2106b5537f51fa005
+      size: 3695
+    - path: configs/train.yaml
+      hash: md5
+      md5: f5f5c038afdec0386f88749121f0bc0e
+      size: 1455
+    - path: data/manifests/split_manifest.json
+      hash: md5
+      md5: 989e8f535421b5241517c3415e72d4a9
+      size: 2588
+    - path: data/processed/course_regression.jsonl
+      hash: md5
+      md5: 834c80df1f4dd21b247d627f67bd9b3d
+      size: 52632
+    - path: data/processed/train.jsonl
+      hash: md5
+      md5: 9859e6b549f3c6c492c1c3b6aa9e3a4b
+      size: 269970
+    - path: data/processed/val.jsonl
+      hash: md5
+      md5: 3b3c6941698154d2cd38937461fdf9a2
+      size: 47697
+    - path: ml/evaluate.py
+      hash: md5
+      md5: f43b70a2b71608322f1ec40b7ff480d9
+      size: 14708
+    - path: ml/extract.py
+      hash: md5
+      md5: 5d2ba71c80a8db2055bacdc4a5e38375
+      size: 11253
+    - path: ml/train_baseline.py
+      hash: md5
+      md5: 683b69872090283d192ce93da71d2e2e
+      size: 10325
+    outs:
+    - path: artifacts/baseline/baseline_bundle.joblib
+      hash: md5
+      md5: 12af55db28f602e1d31067fed46ccab8
+      size: 1075612
+    - path: artifacts/baseline/metrics.json
+      hash: md5
+      md5: ab30e90575c8b839894a2aaa0c5232f6
+      size: 34539
+  train_primary:
+    cmd: python -m ml.train --config configs/train.yaml
+    deps:
+    - path: artifacts/baseline/metrics.json
+      hash: md5
+      md5: ab30e90575c8b839894a2aaa0c5232f6
+      size: 34539
+    - path: configs/taxonomy.yaml
+      hash: md5
+      md5: 769fc8248aeefdd2106b5537f51fa005
+      size: 3695
+    - path: configs/train.yaml
+      hash: md5
+      md5: f5f5c038afdec0386f88749121f0bc0e
+      size: 1455
+    - path: data/manifests/split_manifest.json
+      hash: md5
+      md5: 989e8f535421b5241517c3415e72d4a9
+      size: 2588
+    - path: data/processed/course_regression.jsonl
+      hash: md5
+      md5: 834c80df1f4dd21b247d627f67bd9b3d
+      size: 52632
+    - path: data/processed/train.jsonl
+      hash: md5
+      md5: 9859e6b549f3c6c492c1c3b6aa9e3a4b
+      size: 269970
+    - path: data/processed/val.jsonl
+      hash: md5
+      md5: 3b3c6941698154d2cd38937461fdf9a2
+      size: 47697
+    - path: ml/evaluate.py
+      hash: md5
+      md5: f43b70a2b71608322f1ec40b7ff480d9
+      size: 14708
+    - path: ml/extract.py
+      hash: md5
+      md5: 5d2ba71c80a8db2055bacdc4a5e38375
+      size: 11253
+    - path: ml/train.py
+      hash: md5
+      md5: 6f5b54f48f74e1a880db0b5c37715170
+      size: 16725
+    outs:
+    - path: artifacts/primary/bundle_manifest.json
+      hash: md5
+      md5: 94e8bcd5e3b9334f7bf392a691391a5d
+      size: 2189
+    - path: artifacts/primary/encoder
+      hash: md5
+      md5: 97e056552b2a035415ba4029e0ed48a8.dir
+      size: 91577234
+      nfiles: 4
+    - path: artifacts/primary/head.pt
+      hash: md5
+      md5: 65d1208f4e53a4e333037956a41cb667
+      size: 26815
+    - path: artifacts/primary/metrics.json
+      hash: md5
+      md5: cb8122d74d83787ea6637f2b1712bfd1
+      size: 36007
+  register_model:
+    cmd: python -m ml.register --config configs/train.yaml
+    deps:
+    - path: artifacts/baseline/baseline_bundle.joblib
+      hash: md5
+      md5: 12af55db28f602e1d31067fed46ccab8
+      size: 1075612
+    - path: artifacts/baseline/metrics.json
+      hash: md5
+      md5: ab30e90575c8b839894a2aaa0c5232f6
+      size: 34539
+    - path: artifacts/primary/bundle_manifest.json
+      hash: md5
+      md5: 94e8bcd5e3b9334f7bf392a691391a5d
+      size: 2189
+    - path: artifacts/primary/encoder
+      hash: md5
+      md5: 97e056552b2a035415ba4029e0ed48a8.dir
+      size: 91577234
+      nfiles: 4
+    - path: artifacts/primary/head.pt
+      hash: md5
+      md5: 65d1208f4e53a4e333037956a41cb667
+      size: 26815
+    - path: artifacts/primary/metrics.json
+      hash: md5
+      md5: cb8122d74d83787ea6637f2b1712bfd1
+      size: 36007
+    - path: configs/routing.yaml
+      hash: md5
+      md5: a75e9e2238f074611fb845888517be30
+      size: 1459
+    - path: configs/taxonomy.yaml
+      hash: md5
+      md5: 769fc8248aeefdd2106b5537f51fa005
+      size: 3695
+    - path: configs/train.yaml
+      hash: md5
+      md5: f5f5c038afdec0386f88749121f0bc0e
+      size: 1455
+    - path: ml/register.py
+      hash: md5
+      md5: 90f8a78d432692738c2cce03c5852b9b
+      size: 19021
+    - path: schemas/prediction_contract.schema.json
+      hash: md5
+      md5: 4e74dc80ad84378d879ee194fcdff5eb
+      size: 2129
+    outs:
+    - path: artifacts/registry/pyfunc_model
+      hash: md5
+      md5: 228011b1528e0e6d772fd23d638faeb8.dir
+      size: 91659056
+      nfiles: 15
+    - path: artifacts/registry/registration_summary.json
+      hash: md5
+      md5: 82eb729880adc44f0052cd42a5d65e09
+      size: 10093
