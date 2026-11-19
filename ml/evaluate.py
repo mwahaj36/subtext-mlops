@@ -17,6 +17,7 @@ from ml.extract import evaluate_extractions, extract_constraints, load_lexicons
 from ml.validate import REPO_ROOT, load_yaml, sha256_file
 
 os.environ["MLFLOW_DISABLE_AGENT_HINT"] = "1"
+os.environ["MLFLOW_ALLOW_FILE_STORE"] = "true"
 
 
 def sigmoid(x: np.ndarray) -> np.ndarray:
