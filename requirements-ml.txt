@@ -1,0 +1,14 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.15.0+cpu
+transformers==5.23.0
+sentence-transformers==6.3.0
+scikit-learn==1.9.1
+numpy>=2.0.0,<3.0.0
+scipy>=1.14.0,<2.0.0
+PyYAML==6.0.3
+jsonschema==4.26.0
+python-dotenv>=1.0.0,<2.0.0
+mlflow-skinny==3.18.0
+dvc==3.67.1
+pytest>=8.0.0,<10.0.0
+ruff>=0.10.0,<1.0.0
