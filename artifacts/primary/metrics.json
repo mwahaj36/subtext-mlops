@@ -1,0 +1,1360 @@
+{
+  "run_id": "01b02fc1496548f8b5bd4beb36e6cb99",
+  "run_name": "d1_primary_minilm_multilabel",
+  "run_role": "primary",
+  "preceding_baseline_run_id": "8a2bd18153c94978b98b644e08e12b39",
+  "completed_utc": "2026-11-19T18:53:13.108584+00:00",
+  "tracking_uri": "https://dagshub.com/mwahaj36/subtext-mlops.mlflow",
+  "model_type": "minilm_multilabel",
+  "model_name": "sentence-transformers/all-MiniLM-L6-v2",
+  "model_revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+  "device": "cpu",
+  "runtime_seconds": 91.985,
+  "best_epoch": 5,
+  "epoch_history": [
+    {
+      "epoch": 1,
+      "train_loss": 0.8051,
+      "val_raw_macro_f1": 0.6454
+    },
+    {
+      "epoch": 2,
+      "train_loss": 0.3713,
+      "val_raw_macro_f1": 0.7462
+    },
+    {
+      "epoch": 3,
+      "train_loss": 0.1889,
+      "val_raw_macro_f1": 0.8042
+    },
+    {
+      "epoch": 4,
+      "train_loss": 0.1033,
+      "val_raw_macro_f1": 0.7987
+    },
+    {
+      "epoch": 5,
+      "train_loss": 0.0603,
+      "val_raw_macro_f1": 0.8455
+    },
+    {
+      "epoch": 6,
+      "train_loss": 0.0376,
+      "val_raw_macro_f1": 0.8333
+    },
+    {
+      "epoch": 7,
+      "train_loss": 0.028,
+      "val_raw_macro_f1": 0.8371
+    },
+    {
+      "epoch": 8,
+      "train_loss": 0.0217,
+      "val_raw_macro_f1": 0.8337
+    },
+    {
+      "epoch": 9,
+      "train_loss": 0.019,
+      "val_raw_macro_f1": 0.842
+    },
+    {
+      "epoch": 10,
+      "train_loss": 0.0166,
+      "val_raw_macro_f1": 0.8402
+    },
+    {
+      "epoch": 11,
+      "train_loss": 0.0155,
+      "val_raw_macro_f1": 0.8356
+    },
+    {
+      "epoch": 12,
+      "train_loss": 0.0153,
+      "val_raw_macro_f1": 0.8356
+    }
+  ],
+  "lineage": {
+    "git_commit": "e1da451731a009276641a95d53cdaf175cb377cc",
+    "raw_dvc_md5": "d115780c1b7ed690fcf529d8afce9aea",
+    "raw_sha256": "93b8888f69318cc801aee52b295dbb6c63447d9b1eb9dfa889574844c83462f3",
+    "train_sha256": "4adf8455a2190b54b79313ba3b45dc0f2a569e7bbb35a8611f8a21b23df6c29c",
+    "val_sha256": "a55c6b889b79de151db0e55f48a148231bb1d0bd7b61cca11d3d6cc2e57f9342",
+    "course_regression_sha256": "d94d739435f347f9adbff2563a8282ee7993834d3a216a3708abfbe2d4f3a996",
+    "taxonomy_version": "1.0.0",
+    "route_policy_version": "1.0.0",
+    "python_version": "3.12.10",
+    "platform": "Windows-11-AMD64"
+  },
+  "hyperparameters": {
+    "seed": 42,
+    "max_length": 128,
+    "batch_size": 16,
+    "epochs": 12,
+    "learning_rate": 8e-05,
+    "weight_decay": 0.01,
+    "pos_weight_cap": 4.0,
+    "dropout": 0.1
+  },
+  "calibration": {
+    "method": "temperature_scaling",
+    "temperatures": {
+      "affective_outcome": 1.0031,
+      "affective_tone": 1.2177,
+      "sensory_visual": 1.0302,
+      "sensory_pacing": 0.8923,
+      "person_actor": 0.25,
+      "person_director": 0.25,
+      "similarity_plot": 1.234,
+      "similarity_vibe": 0.6809,
+      "attribute_genre": 1.014,
+      "attribute_era": 0.25,
+      "attribute_language_country": 0.25,
+      "negation_genre": 0.7405,
+      "negation_content": 0.3942,
+      "thematic_plot": 1.854
+    },
+    "thresholds": {
+      "affective_outcome": 0.6,
+      "affective_tone": 0.36,
+      "sensory_visual": 0.22,
+      "sensory_pacing": 0.38,
+      "person_actor": 0.5,
+      "person_director": 0.5,
+      "similarity_plot": 0.5,
+      "similarity_vibe": 0.78,
+      "attribute_genre": 0.5,
+      "attribute_era": 0.5,
+      "attribute_language_country": 0.5,
+      "negation_genre": 0.56,
+      "negation_content": 0.24,
+      "thematic_plot": 0.46
+    }
+  },
+  "val": {
+    "num_records": 58,
+    "aggregate": {
+      "macro_f1": 0.877,
+      "micro_f1": 0.8727,
+      "samples_f1": 0.8674,
+      "macro_precision": 0.8474,
+      "macro_recall": 0.9268,
+      "micro_precision": 0.8276,
+      "micro_recall": 0.9231,
+      "subset_accuracy": 0.4483,
+      "hamming_loss": 0.0517,
+      "brier_score": 0.0451,
+      "ece": 0.0287,
+      "uncalibrated_brier_score": 0.0468,
+      "uncalibrated_ece": 0.0282,
+      "extraction_micro_f1": 1.0,
+      "extraction_micro_precision": 1.0,
+      "extraction_micro_recall": 1.0
+    },
+    "slices": {
+      "single_intent": {
+        "count": 0,
+        "micro_f1": 0.0,
+        "subset_accuracy": 0.0
+      },
+      "multi_intent": {
+        "count": 58,
+        "micro_f1": 0.8727,
+        "subset_accuracy": 0.4483
+      },
+      "compound_broad": {
+        "count": 50,
+        "micro_f1": 0.869,
+        "subset_accuracy": 0.42
+      },
+      "negation": {
+        "count": 22,
+        "micro_f1": 0.8504,
+        "subset_accuracy": 0.2727
+      },
+      "person": {
+        "count": 16,
+        "micro_f1": 0.9109,
+        "subset_accuracy": 0.5625
+      },
+      "rare_labels": {
+        "labels": [
+          "similarity_vibe",
+          "affective_tone",
+          "person_actor",
+          "person_director",
+          "affective_outcome"
+        ],
+        "macro_f1": 0.8775
+      }
+    },
+    "per_label": {
+      "affective_outcome": {
+        "f1": 0.8421,
+        "precision": 0.8889,
+        "recall": 0.8,
+        "support": 10,
+        "predicted_positives": 9,
+        "threshold": 0.6,
+        "tp": 8,
+        "fp": 1,
+        "fn": 2,
+        "tn": 47
+      },
+      "affective_tone": {
+        "f1": 0.6364,
+        "precision": 0.5,
+        "recall": 0.875,
+        "support": 8,
+        "predicted_positives": 14,
+        "threshold": 0.36,
+        "tp": 7,
+        "fp": 7,
+        "fn": 1,
+        "tn": 43
+      },
+      "sensory_visual": {
+        "f1": 0.72,
+        "precision": 0.6,
+        "recall": 0.9,
+        "support": 10,
+        "predicted_positives": 15,
+        "threshold": 0.22,
+        "tp": 9,
+        "fp": 6,
+        "fn": 1,
+        "tn": 42
+      },
+      "sensory_pacing": {
+        "f1": 0.9524,
+        "precision": 0.9091,
+        "recall": 1.0,
+        "support": 10,
+        "predicted_positives": 11,
+        "threshold": 0.38,
+        "tp": 10,
+        "fp": 1,
+        "fn": 0,
+        "tn": 47
+      },
+      "person_actor": {
+        "f1": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "support": 8,
+        "predicted_positives": 8,
+        "threshold": 0.5,
+        "tp": 8,
+        "fp": 0,
+        "fn": 0,
+        "tn": 50
+      },
+      "person_director": {
+        "f1": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "support": 8,
+        "predicted_positives": 8,
+        "threshold": 0.5,
+        "tp": 8,
+        "fp": 0,
+        "fn": 0,
+        "tn": 50
+      },
+      "similarity_plot": {
+        "f1": 0.8,
+        "precision": 0.6667,
+        "recall": 1.0,
+        "support": 10,
+        "predicted_positives": 15,
+        "threshold": 0.5,
+        "tp": 10,
+        "fp": 5,
+        "fn": 0,
+        "tn": 43
+      },
+      "similarity_vibe": {
+        "f1": 0.9091,
+        "precision": 1.0,
+        "recall": 0.8333,
+        "support": 6,
+        "predicted_positives": 5,
+        "threshold": 0.78,
+        "tp": 5,
+        "fp": 0,
+        "fn": 1,
+        "tn": 52
+      },
+      "attribute_genre": {
+        "f1": 0.8966,
+        "precision": 0.9286,
+        "recall": 0.8667,
+        "support": 30,
+        "predicted_positives": 28,
+        "threshold": 0.5,
+        "tp": 26,
+        "fp": 2,
+        "fn": 4,
+        "tn": 26
+      },
+      "attribute_era": {
+        "f1": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "support": 10,
+        "predicted_positives": 10,
+        "threshold": 0.5,
+        "tp": 10,
+        "fp": 0,
+        "fn": 0,
+        "tn": 48
+      },
+      "attribute_language_country": {
+        "f1": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "support": 14,
+        "predicted_positives": 14,
+        "threshold": 0.5,
+        "tp": 14,
+        "fp": 0,
+        "fn": 0,
+        "tn": 44
+      },
+      "negation_genre": {
+        "f1": 0.9524,
+        "precision": 0.9091,
+        "recall": 1.0,
+        "support": 10,
+        "predicted_positives": 11,
+        "threshold": 0.56,
+        "tp": 10,
+        "fp": 1,
+        "fn": 0,
+        "tn": 47
+      },
+      "negation_content": {
+        "f1": 0.96,
+        "precision": 0.9231,
+        "recall": 1.0,
+        "support": 12,
+        "predicted_positives": 13,
+        "threshold": 0.24,
+        "tp": 12,
+        "fp": 1,
+        "fn": 0,
+        "tn": 45
+      },
+      "thematic_plot": {
+        "f1": 0.6087,
+        "precision": 0.5385,
+        "recall": 0.7,
+        "support": 10,
+        "predicted_positives": 13,
+        "threshold": 0.46,
+        "tp": 7,
+        "fp": 6,
+        "fn": 3,
+        "tn": 42
+      }
+    },
+    "extraction": {
+      "overall_micro": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 118
+      },
+      "per_field": {
+        "actors": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 8
+        },
+        "directors": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 8
+        },
+        "excluded_genres": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 10
+        },
+        "excluded_terms": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 12
+        },
+        "genres": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 30
+        },
+        "language": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 14
+        },
+        "reference_titles": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 16
+        },
+        "year_max": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 10
+        },
+        "year_min": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 10
+        }
+      },
+      "total_records": 58
+    },
+    "error_examples": [
+      {
+        "query_id": "d1_q0017",
+        "group_id": "grp_008",
+        "text": "Lift my mood with a hopeful uplift and no sad ending",
+        "gold_labels": [
+          "affective_outcome",
+          "negation_content"
+        ],
+        "predicted_labels": [
+          "affective_outcome",
+          "affective_tone",
+          "negation_content"
+        ],
+        "top_scores": {
+          "affective_outcome": 0.999,
+          "negation_content": 0.993,
+          "affective_tone": 0.861,
+          "attribute_genre": 0.134,
+          "thematic_plot": 0.125
+        }
+      },
+      {
+        "query_id": "d1_q0018",
+        "group_id": "grp_008",
+        "text": "Want an inspiring pick that leaves me smiling without a sad ending",
+        "gold_labels": [
+          "affective_outcome",
+          "negation_content"
+        ],
+        "predicted_labels": [
+          "affective_outcome",
+          "affective_tone",
+          "negation_content"
+        ],
+        "top_scores": {
+          "affective_outcome": 1.0,
+          "negation_content": 0.986,
+          "affective_tone": 0.803,
+          "thematic_plot": 0.088,
+          "attribute_genre": 0.069
+        }
+      },
+      {
+        "query_id": "d1_q0027",
+        "group_id": "grp_013",
+        "text": "Want a tender unhurried romance that lets silence breathe",
+        "gold_labels": [
+          "affective_tone",
+          "attribute_genre",
+          "sensory_pacing"
+        ],
+        "predicted_labels": [
+          "affective_outcome",
+          "affective_tone",
+          "sensory_pacing",
+          "attribute_genre"
+        ],
+        "top_scores": {
+          "affective_tone": 0.92,
+          "affective_outcome": 0.876,
+          "attribute_genre": 0.666,
+          "sensory_pacing": 0.503,
+          "thematic_plot": 0.034
+        }
+      },
+      {
+        "query_id": "d1_q0035",
+        "group_id": "grp_017",
+        "text": "Need a soothing Japanese slice-of-life mood bathed in soft daylight",
+        "gold_labels": [
+          "affective_outcome",
+          "sensory_visual",
+          "attribute_language_country"
+        ],
+        "predicted_labels": [
+          "affective_outcome",
+          "affective_tone",
+          "sensory_visual",
+          "attribute_language_country"
+        ],
+        "top_scores": {
+          "attribute_language_country": 1.0,
+          "affective_outcome": 0.826,
+          "affective_tone": 0.737,
+          "sensory_visual": 0.517,
+          "similarity_vibe": 0.184
+        }
+      },
+      {
+        "query_id": "d1_q0094",
+        "group_id": "grp_044",
+        "text": "Lonely portrait of modern alienation starring Joaquin Phoenix at a quiet pace",
+        "gold_labels": [
+          "person_actor",
+          "thematic_plot",
+          "sensory_pacing"
+        ],
+        "predicted_labels": [
+          "sensory_visual",
+          "sensory_pacing",
+          "person_actor"
+        ],
+        "top_scores": {
+          "person_actor": 0.999,
+          "sensory_visual": 0.626,
+          "sensory_pacing": 0.414,
+          "affective_tone": 0.233,
+          "thematic_plot": 0.088
+        }
+      },
+      {
+        "query_id": "d1_q0114",
+        "group_id": "grp_054",
+        "text": "Dreamy pastel alienation directed by Sofia Coppola",
+        "gold_labels": [
+          "person_director",
+          "affective_tone",
+          "sensory_visual"
+        ],
+        "predicted_labels": [
+          "sensory_visual",
+          "person_director",
+          "thematic_plot"
+        ],
+        "top_scores": {
+          "person_director": 1.0,
+          "sensory_visual": 0.754,
+          "thematic_plot": 0.701,
+          "affective_tone": 0.178,
+          "similarity_plot": 0.034
+        }
+      },
+      {
+        "query_id": "d1_q0115",
+        "group_id": "grp_054",
+        "text": "Hazy sun-dappled loneliness from director Sofia Coppola",
+        "gold_labels": [
+          "person_director",
+          "affective_tone",
+          "sensory_visual"
+        ],
+        "predicted_labels": [
+          "affective_tone",
+          "sensory_visual",
+          "person_director",
+          "thematic_plot"
+        ],
+        "top_scores": {
+          "person_director": 1.0,
+          "thematic_plot": 0.668,
+          "affective_tone": 0.501,
+          "sensory_visual": 0.332,
+          "affective_outcome": 0.047
+        }
+      },
+      {
+        "query_id": "d1_q0138",
+        "group_id": "grp_066",
+        "text": "Meditative poetic slow cinema directed by Andrei Tarkovsky, no action",
+        "gold_labels": [
+          "person_director",
+          "sensory_pacing",
+          "negation_genre"
+        ],
+        "predicted_labels": [
+          "sensory_visual",
+          "sensory_pacing",
+          "person_director",
+          "negation_genre"
+        ],
+        "top_scores": {
+          "person_director": 1.0,
+          "negation_genre": 0.996,
+          "sensory_pacing": 0.968,
+          "sensory_visual": 0.802,
+          "attribute_genre": 0.334
+        }
+      },
+      {
+        "query_id": "d1_q0139",
+        "group_id": "grp_066",
+        "text": "Unhurried spiritual cinema from director Andrei Tarkovsky, without action",
+        "gold_labels": [
+          "person_director",
+          "sensory_pacing",
+          "negation_genre"
+        ],
+        "predicted_labels": [
+          "sensory_visual",
+          "sensory_pacing",
+          "person_director",
+          "negation_genre"
+        ],
+        "top_scores": {
+          "person_director": 1.0,
+          "negation_genre": 0.982,
+          "sensory_pacing": 0.936,
+          "attribute_genre": 0.413,
+          "sensory_visual": 0.312
+        }
+      },
+      {
+        "query_id": "d1_q0164",
+        "group_id": "grp_076",
+        "text": "Morally agonizing kidnapping investigation similar to Prisoners, not horror",
+        "gold_labels": [
+          "similarity_plot",
+          "negation_genre"
+        ],
+        "predicted_labels": [
+          "similarity_plot",
+          "negation_genre",
+          "thematic_plot"
+        ],
+        "top_scores": {
+          "negation_genre": 0.989,
+          "similarity_plot": 0.973,
+          "thematic_plot": 0.647,
+          "attribute_genre": 0.495,
+          "affective_outcome": 0.016
+        }
+      },
+      {
+        "query_id": "d1_q0171",
+        "group_id": "grp_080",
+        "text": "High-stakes space survival rescue plot like Interstellar that hits emotionally",
+        "gold_labels": [
+          "similarity_plot",
+          "affective_outcome"
+        ],
+        "predicted_labels": [
+          "similarity_plot"
+        ],
+        "top_scores": {
+          "similarity_plot": 0.977,
+          "attribute_genre": 0.288,
+          "affective_outcome": 0.184,
+          "negation_genre": 0.18,
+          "thematic_plot": 0.09
+        }
+      },
+      {
+        "query_id": "d1_q0192",
+        "group_id": "grp_088",
+        "text": "Sea-breeze painterly intimacy and stolen glances like Portrait of a Lady on Fire without melodrama",
+        "gold_labels": [
+          "similarity_vibe",
+          "sensory_visual",
+          "negation_content"
+        ],
+        "predicted_labels": [
+          "similarity_vibe",
+          "negation_content"
+        ],
+        "top_scores": {
+          "negation_content": 1.0,
+          "similarity_vibe": 0.992,
+          "similarity_plot": 0.434,
+          "affective_tone": 0.307,
+          "sensory_visual": 0.15
+        }
+      },
+      {
+        "query_id": "d1_q0193",
+        "group_id": "grp_088",
+        "text": "Quiet candlelit coastal longing similar to Portrait of a Lady on Fire with no melodrama",
+        "gold_labels": [
+          "similarity_vibe",
+          "sensory_visual",
+          "negation_content"
+        ],
+        "predicted_labels": [
+          "affective_tone",
+          "sensory_visual",
+          "similarity_vibe",
+          "negation_content"
+        ],
+        "top_scores": {
+          "negation_content": 1.0,
+          "similarity_vibe": 0.997,
+          "affective_tone": 0.84,
+          "sensory_visual": 0.221,
+          "affective_outcome": 0.131
+        }
+      },
+      {
+        "query_id": "d1_q0198",
+        "group_id": "grp_091",
+        "text": "Sunlit pastel folk-horror dread like Midsommar with no jump scares",
+        "gold_labels": [
+          "similarity_vibe",
+          "attribute_genre",
+          "negation_content"
+        ],
+        "predicted_labels": [
+          "similarity_plot",
+          "attribute_genre",
+          "negation_content"
+        ],
+        "top_scores": {
+          "negation_content": 1.0,
+          "similarity_plot": 0.777,
+          "attribute_genre": 0.624,
+          "similarity_vibe": 0.178,
+          "affective_tone": 0.075
+        }
+      },
+      {
+        "query_id": "d1_q0199",
+        "group_id": "grp_091",
+        "text": "Bright daylight unsettling horror atmosphere similar to Midsommar without jump scares",
+        "gold_labels": [
+          "similarity_vibe",
+          "attribute_genre",
+          "negation_content"
+        ],
+        "predicted_labels": [
+          "sensory_visual",
+          "similarity_vibe",
+          "negation_content"
+        ],
+        "top_scores": {
+          "negation_content": 1.0,
+          "similarity_vibe": 0.928,
+          "sensory_visual": 0.476,
+          "affective_tone": 0.28,
+          "similarity_plot": 0.062
+        }
+      }
+    ]
+  },
+  "course_regression": {
+    "num_records": 66,
+    "aggregate": {
+      "macro_f1": 0.8183,
+      "micro_f1": 0.7896,
+      "samples_f1": 0.7802,
+      "macro_precision": 0.8076,
+      "macro_recall": 0.8542,
+      "micro_precision": 0.7405,
+      "micro_recall": 0.8457,
+      "subset_accuracy": 0.2727,
+      "hamming_loss": 0.079,
+      "brier_score": 0.0501,
+      "ece": 0.0299,
+      "uncalibrated_brier_score": 0.052,
+      "uncalibrated_ece": 0.0362,
+      "extraction_micro_f1": 0.9872,
+      "extraction_micro_precision": 0.9915,
+      "extraction_micro_recall": 0.9831
+    },
+    "slices": {
+      "single_intent": {
+        "count": 6,
+        "micro_f1": 0.6,
+        "subset_accuracy": 0.0
+      },
+      "multi_intent": {
+        "count": 60,
+        "micro_f1": 0.8012,
+        "subset_accuracy": 0.3
+      },
+      "compound_broad": {
+        "count": 60,
+        "micro_f1": 0.8012,
+        "subset_accuracy": 0.3
+      },
+      "negation": {
+        "count": 20,
+        "micro_f1": 0.708,
+        "subset_accuracy": 0.1
+      },
+      "person": {
+        "count": 16,
+        "micro_f1": 0.8866,
+        "subset_accuracy": 0.375
+      },
+      "rare_labels": {
+        "labels": [
+          "person_director",
+          "negation_genre",
+          "person_actor",
+          "sensory_pacing",
+          "sensory_visual"
+        ],
+        "macro_f1": 0.8405
+      }
+    },
+    "per_label": {
+      "affective_outcome": {
+        "f1": 0.88,
+        "precision": 0.8462,
+        "recall": 0.9167,
+        "support": 12,
+        "predicted_positives": 13,
+        "threshold": 0.6,
+        "tp": 11,
+        "fp": 2,
+        "fn": 1,
+        "tn": 52
+      },
+      "affective_tone": {
+        "f1": 0.5143,
+        "precision": 0.3913,
+        "recall": 0.75,
+        "support": 12,
+        "predicted_positives": 23,
+        "threshold": 0.36,
+        "tp": 9,
+        "fp": 14,
+        "fn": 3,
+        "tn": 40
+      },
+      "sensory_visual": {
+        "f1": 0.6667,
+        "precision": 0.5,
+        "recall": 1.0,
+        "support": 10,
+        "predicted_positives": 20,
+        "threshold": 0.22,
+        "tp": 10,
+        "fp": 10,
+        "fn": 0,
+        "tn": 46
+      },
+      "sensory_pacing": {
+        "f1": 0.9474,
+        "precision": 1.0,
+        "recall": 0.9,
+        "support": 10,
+        "predicted_positives": 9,
+        "threshold": 0.38,
+        "tp": 9,
+        "fp": 0,
+        "fn": 1,
+        "tn": 56
+      },
+      "person_actor": {
+        "f1": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "support": 10,
+        "predicted_positives": 10,
+        "threshold": 0.5,
+        "tp": 10,
+        "fp": 0,
+        "fn": 0,
+        "tn": 56
+      },
+      "person_director": {
+        "f1": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "support": 6,
+        "predicted_positives": 6,
+        "threshold": 0.5,
+        "tp": 6,
+        "fp": 0,
+        "fn": 0,
+        "tn": 60
+      },
+      "similarity_plot": {
+        "f1": 0.8,
+        "precision": 0.8,
+        "recall": 0.8,
+        "support": 10,
+        "predicted_positives": 10,
+        "threshold": 0.5,
+        "tp": 8,
+        "fp": 2,
+        "fn": 2,
+        "tn": 54
+      },
+      "similarity_vibe": {
+        "f1": 0.8421,
+        "precision": 0.8889,
+        "recall": 0.8,
+        "support": 10,
+        "predicted_positives": 9,
+        "threshold": 0.78,
+        "tp": 8,
+        "fp": 1,
+        "fn": 2,
+        "tn": 55
+      },
+      "attribute_genre": {
+        "f1": 0.7037,
+        "precision": 0.6333,
+        "recall": 0.7917,
+        "support": 24,
+        "predicted_positives": 30,
+        "threshold": 0.5,
+        "tp": 19,
+        "fp": 11,
+        "fn": 5,
+        "tn": 31
+      },
+      "attribute_era": {
+        "f1": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "support": 12,
+        "predicted_positives": 12,
+        "threshold": 0.5,
+        "tp": 12,
+        "fp": 0,
+        "fn": 0,
+        "tn": 54
+      },
+      "attribute_language_country": {
+        "f1": 0.9565,
+        "precision": 1.0,
+        "recall": 0.9167,
+        "support": 12,
+        "predicted_positives": 11,
+        "threshold": 0.5,
+        "tp": 11,
+        "fp": 0,
+        "fn": 1,
+        "tn": 54
+      },
+      "negation_genre": {
+        "f1": 0.5882,
+        "precision": 0.7143,
+        "recall": 0.5,
+        "support": 10,
+        "predicted_positives": 7,
+        "threshold": 0.56,
+        "tp": 5,
+        "fp": 2,
+        "fn": 5,
+        "tn": 54
+      },
+      "negation_content": {
+        "f1": 0.9167,
+        "precision": 0.9167,
+        "recall": 0.9167,
+        "support": 12,
+        "predicted_positives": 12,
+        "threshold": 0.24,
+        "tp": 11,
+        "fp": 1,
+        "fn": 1,
+        "tn": 53
+      },
+      "thematic_plot": {
+        "f1": 0.64,
+        "precision": 0.6154,
+        "recall": 0.6667,
+        "support": 12,
+        "predicted_positives": 13,
+        "threshold": 0.46,
+        "tp": 8,
+        "fp": 5,
+        "fn": 4,
+        "tn": 49
+      }
+    },
+    "extraction": {
+      "overall_micro": {
+        "precision": 0.9915,
+        "recall": 0.9831,
+        "f1": 0.9872,
+        "support": 118
+      },
+      "per_field": {
+        "actors": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 10
+        },
+        "directors": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 6
+        },
+        "excluded_genres": {
+          "precision": 1.0,
+          "recall": 0.9,
+          "f1": 0.9474,
+          "support": 10
+        },
+        "excluded_terms": {
+          "precision": 0.9167,
+          "recall": 0.9167,
+          "f1": 0.9167,
+          "support": 12
+        },
+        "genres": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 26
+        },
+        "language": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 12
+        },
+        "reference_titles": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 20
+        },
+        "year_max": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 10
+        },
+        "year_min": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 12
+        }
+      },
+      "total_records": 66
+    },
+    "error_examples": [
+      {
+        "query_id": "d1_q0001",
+        "group_id": "grp_001",
+        "text": "Need a movie that will make me cry my eyes out tonight",
+        "gold_labels": [
+          "affective_outcome"
+        ],
+        "predicted_labels": [
+          "affective_outcome",
+          "attribute_genre"
+        ],
+        "top_scores": {
+          "affective_outcome": 1.0,
+          "attribute_genre": 0.974,
+          "affective_tone": 0.075,
+          "thematic_plot": 0.05,
+          "similarity_plot": 0.021
+        }
+      },
+      {
+        "query_id": "d1_q0002",
+        "group_id": "grp_001",
+        "text": "Looking for a genuine tearjerker that leaves me sobbing",
+        "gold_labels": [
+          "affective_outcome"
+        ],
+        "predicted_labels": [
+          "affective_outcome",
+          "affective_tone",
+          "thematic_plot"
+        ],
+        "top_scores": {
+          "affective_outcome": 1.0,
+          "affective_tone": 0.545,
+          "thematic_plot": 0.474,
+          "attribute_genre": 0.075,
+          "sensory_pacing": 0.025
+        }
+      },
+      {
+        "query_id": "d1_q0003",
+        "group_id": "grp_001",
+        "text": "Give me something devastating enough to trigger an ugly cry",
+        "gold_labels": [
+          "affective_outcome"
+        ],
+        "predicted_labels": [
+          "affective_outcome",
+          "affective_tone"
+        ],
+        "top_scores": {
+          "affective_outcome": 1.0,
+          "affective_tone": 0.691,
+          "attribute_genre": 0.265,
+          "thematic_plot": 0.204,
+          "similarity_plot": 0.076
+        }
+      },
+      {
+        "query_id": "d1_q0006",
+        "group_id": "grp_003",
+        "text": "Recommend something wildly hilarious that makes me laugh out loud",
+        "gold_labels": [
+          "affective_outcome"
+        ],
+        "predicted_labels": [
+          "affective_outcome",
+          "attribute_genre"
+        ],
+        "top_scores": {
+          "affective_outcome": 0.999,
+          "attribute_genre": 0.872,
+          "thematic_plot": 0.234,
+          "affective_tone": 0.101,
+          "sensory_pacing": 0.029
+        }
+      },
+      {
+        "query_id": "d1_q0007",
+        "group_id": "grp_003",
+        "text": "In the mood for a movie that cheers me up immediately",
+        "gold_labels": [
+          "affective_outcome"
+        ],
+        "predicted_labels": [
+          "affective_outcome",
+          "attribute_genre"
+        ],
+        "top_scores": {
+          "affective_outcome": 0.999,
+          "attribute_genre": 0.986,
+          "affective_tone": 0.105,
+          "sensory_pacing": 0.046,
+          "thematic_plot": 0.039
+        }
+      },
+      {
+        "query_id": "d1_q0008",
+        "group_id": "grp_003",
+        "text": "Need an absurdly funny watch to lift my spirits",
+        "gold_labels": [
+          "affective_outcome"
+        ],
+        "predicted_labels": [
+          "affective_outcome",
+          "affective_tone",
+          "attribute_genre"
+        ],
+        "top_scores": {
+          "affective_outcome": 0.992,
+          "attribute_genre": 0.769,
+          "affective_tone": 0.64,
+          "thematic_plot": 0.124,
+          "sensory_visual": 0.021
+        }
+      },
+      {
+        "query_id": "d1_q0025",
+        "group_id": "grp_012",
+        "text": "Craving a bleak monochrome atmosphere full of existential dread",
+        "gold_labels": [
+          "affective_tone",
+          "sensory_visual"
+        ],
+        "predicted_labels": [
+          "affective_tone",
+          "sensory_visual",
+          "thematic_plot"
+        ],
+        "top_scores": {
+          "affective_tone": 0.99,
+          "thematic_plot": 0.739,
+          "sensory_visual": 0.248,
+          "affective_outcome": 0.247,
+          "similarity_vibe": 0.118
+        }
+      },
+      {
+        "query_id": "d1_q0026",
+        "group_id": "grp_012",
+        "text": "Looking for cold austere visuals paired with a desolate mood",
+        "gold_labels": [
+          "affective_tone",
+          "sensory_visual"
+        ],
+        "predicted_labels": [
+          "affective_tone",
+          "sensory_visual",
+          "similarity_vibe"
+        ],
+        "top_scores": {
+          "affective_tone": 0.992,
+          "similarity_vibe": 0.913,
+          "sensory_visual": 0.835,
+          "affective_outcome": 0.292,
+          "negation_content": 0.164
+        }
+      },
+      {
+        "query_id": "d1_q0031",
+        "group_id": "grp_015",
+        "text": "Want an eerie unsettling watch, not horror",
+        "gold_labels": [
+          "affective_tone",
+          "negation_genre"
+        ],
+        "predicted_labels": [
+          "affective_outcome",
+          "affective_tone",
+          "attribute_genre"
+        ],
+        "top_scores": {
+          "affective_tone": 0.946,
+          "affective_outcome": 0.854,
+          "attribute_genre": 0.579,
+          "sensory_visual": 0.132,
+          "negation_genre": 0.054
+        }
+      },
+      {
+        "query_id": "d1_q0032",
+        "group_id": "grp_015",
+        "text": "Give me creeping psychological tension without horror tropes",
+        "gold_labels": [
+          "affective_tone",
+          "negation_genre"
+        ],
+        "predicted_labels": [
+          "affective_outcome",
+          "affective_tone",
+          "thematic_plot"
+        ],
+        "top_scores": {
+          "affective_tone": 0.944,
+          "affective_outcome": 0.763,
+          "thematic_plot": 0.496,
+          "attribute_genre": 0.42,
+          "negation_genre": 0.292
+        }
+      },
+      {
+        "query_id": "d1_q0040",
+        "group_id": "grp_019",
+        "text": "Wet pavement, glowing signs, and shadowy urban crime noir visuals",
+        "gold_labels": [
+          "sensory_visual",
+          "attribute_genre"
+        ],
+        "predicted_labels": [
+          "affective_tone",
+          "sensory_visual"
+        ],
+        "top_scores": {
+          "sensory_visual": 0.999,
+          "affective_tone": 0.738,
+          "attribute_genre": 0.182,
+          "thematic_plot": 0.126,
+          "similarity_vibe": 0.086
+        }
+      },
+      {
+        "query_id": "d1_q0074",
+        "group_id": "grp_034",
+        "text": "Reflective philosophical conversation piece featuring Ethan Hawke about time passing",
+        "gold_labels": [
+          "person_actor",
+          "affective_tone",
+          "thematic_plot"
+        ],
+        "predicted_labels": [
+          "person_actor",
+          "thematic_plot"
+        ],
+        "top_scores": {
+          "person_actor": 0.966,
+          "thematic_plot": 0.812,
+          "affective_tone": 0.309,
+          "attribute_genre": 0.153,
+          "sensory_pacing": 0.114
+        }
+      },
+      {
+        "query_id": "d1_q0075",
+        "group_id": "grp_034",
+        "text": "Quiet bittersweet character study starring Ethan Hawke on faith or aging",
+        "gold_labels": [
+          "person_actor",
+          "affective_tone",
+          "thematic_plot"
+        ],
+        "predicted_labels": [
+          "affective_tone",
+          "person_actor"
+        ],
+        "top_scores": {
+          "person_actor": 1.0,
+          "affective_tone": 0.972,
+          "thematic_plot": 0.457,
+          "affective_outcome": 0.038,
+          "attribute_genre": 0.035
+        }
+      },
+      {
+        "query_id": "d1_q0112",
+        "group_id": "grp_053",
+        "text": "Japanese classics between 1950 and 1969 directed by Akira Kurosawa",
+        "gold_labels": [
+          "person_director",
+          "attribute_language_country",
+          "attribute_era"
+        ],
+        "predicted_labels": [
+          "person_director",
+          "attribute_genre",
+          "attribute_era",
+          "attribute_language_country"
+        ],
+        "top_scores": {
+          "person_director": 1.0,
+          "attribute_era": 1.0,
+          "attribute_language_country": 1.0,
+          "attribute_genre": 0.923,
+          "thematic_plot": 0.111
+        }
+      },
+      {
+        "query_id": "d1_q0113",
+        "group_id": "grp_053",
+        "text": "Classic black-and-white cinema from Japan 1950-1969 by director Akira Kurosawa",
+        "gold_labels": [
+          "person_director",
+          "attribute_language_country",
+          "attribute_era"
+        ],
+        "predicted_labels": [
+          "person_director",
+          "attribute_genre",
+          "attribute_era",
+          "attribute_language_country"
+        ],
+        "top_scores": {
+          "person_director": 1.0,
+          "attribute_language_country": 1.0,
+          "attribute_era": 1.0,
+          "attribute_genre": 0.602,
+          "sensory_visual": 0.204
+        }
+      }
+    ]
+  }
+}
