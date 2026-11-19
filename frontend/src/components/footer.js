@@ -1,0 +1,43 @@
+"use client";
+import React from "react";
+
+export default function Footer() {
+  return (
+    <footer className="py-12 px-8 md:px-12 flex flex-col md:flex-row justify-between items-center md:items-end gap-12 md:gap-8 border-t border-white/5 bg-black/40 backdrop-blur-xl w-full">
+      <div className="flex flex-col items-center md:items-start gap-4">
+        <div className="w-28 h-8 bg-white group-hover:bg-[var(--primary)] transition-all duration-500 transform [mask-image:url(/file.svg)] [mask-size:contain] [mask-repeat:no-repeat] [mask-position:center]" />
+        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-700">
+          © 2026 SBTXT. All Rights Reserved.
+        </p>
+        <div className="flex flex-col items-center md:items-start gap-1 mt-2">
+          <p className="text-[9px] font-bold uppercase tracking-widest text-gray-500">
+            Bug Reporting & Support
+          </p>
+          <a
+            href="mailto:mwahaj25@gmail.com"
+            className="text-[10px] font-bold tracking-widest text-[var(--primary)] hover:text-white transition-colors"
+          >
+            mwahaj25@gmail.com
+          </a>
+        </div>
+      </div>
+
+      <div className="flex flex-col items-center md:items-end gap-6">
+        <div className="flex flex-col items-center md:items-end gap-2 max-w-[200px]">
+          <a
+            href="https://www.themoviedb.org/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:scale-105 transition-transform"
+          >
+            <img src="/tmdb.svg" alt="TMDB Logo" className="h-4" />
+          </a>
+          <p className="text-[7px] font-bold uppercase tracking-tighter text-gray-600 text-center md:text-right leading-tight">
+            This product uses the TMDB API but is not endorsed or certified by
+            TMDB.
+          </p>
+        </div>
+      </div>
+    </footer>
+  );
+}

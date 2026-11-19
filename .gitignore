@@ -1,0 +1,45 @@
+# Environment and credentials
+.env
+.env.*
+!.env.example
+!backend/.env.example
+
+# Python and caches
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.DS_Store
+
+# Frontend build outputs and dependencies
+frontend/node_modules/
+frontend/.next/
+frontend/dist/
+frontend/build/
+
+# Local MLflow and DVC scratch state (keep .dvc/config, dvc.yaml, dvc.lock tracked)
+mlruns/
+mlartifacts/
+.dvc/tmp/
+.dvc/cache/
+
+# Raw/processed DVC-managed data binaries and serialized model weights
+data/raw/*.csv
+data/raw/*.jsonl
+data/raw/*.parquet
+data/processed/*.csv
+data/processed/*.jsonl
+data/processed/*.parquet
+data/demo_batches/*.csv
+data/demo_batches/*.jsonl
+data/demo_batches/*.parquet
+*.pkl
+*.joblib
+*.pt
+*.safetensors
+*.bin
+backend/umap_reducer.pkl
+backend/vector_cache.json
