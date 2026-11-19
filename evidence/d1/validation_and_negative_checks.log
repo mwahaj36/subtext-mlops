@@ -1,0 +1,24 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.12.10, pytest-9.1.1, pluggy-1.7.0 -- C:\Users\Wahaj\Documents\GitHub\subtext-mlops\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\Wahaj\Documents\GitHub\subtext-mlops
+configfile: pyproject.toml
+plugins: hydra-core-1.3.8, platformdirs-4.14.7, anyio-4.13.0
+collecting ... collected 8 items
+
+tests/test_ml_validation.py::test_real_dataset_and_splits_pass_validation PASSED [ 12%]
+tests/test_ml_validation.py::test_corruption_fixtures_fail_closed PASSED [ 25%]
+tests/test_ml_validation.py::test_leakage_fixtures_fail_closed PASSED    [ 37%]
+tests/test_ml_validation.py::test_training_preflight_guard_halts_before_fit PASSED [ 50%]
+tests/test_ml_validation.py::test_extraction_baseline_handles_constraints_and_false_negation PASSED [ 62%]
+tests/test_ml_training.py::test_temperature_scaling_and_threshold_tuning_shapes_and_bounds PASSED [ 75%]
+tests/test_ml_training.py::test_deterministic_route_selection PASSED     [ 87%]
+tests/test_ml_training.py::test_registered_bundle_artifacts_and_reload PASSED [100%]
+
+============================== warnings summary ===============================
+.venv\Lib\site-packages\mlflow\pyfunc\utils\data_validation.py:187
+  C:\Users\Wahaj\Documents\GitHub\subtext-mlops\.venv\Lib\site-packages\mlflow\pyfunc\utils\data_validation.py:187: UserWarning: [33mAdd type hints to the `predict` method to enable data validation and automatic signature inference during model logging. Check https://mlflow.org/docs/latest/model/python_model.html#type-hint-usage-in-pythonmodel for more details.[0m
+    color_warning(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 8 passed, 1 warning in 16.84s ========================
