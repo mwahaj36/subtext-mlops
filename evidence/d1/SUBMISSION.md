@@ -7,9 +7,9 @@ Copy and paste the block below into the assignment submission box (and supply th
 ```text
 Project: Subtext MLOps — Fine-Grained Multi-Label Query Understanding & Constraint Extraction
 Team Members:
-- Muhammad Wahaj (23L-0560) — Stage 1 (Deliverable 1 & Shared Infrastructure)
-- Tayyab Khalid (23L-0501) — Stage 2 (Deliverable 2 Part A)
-- Fasih-ur-Rehman (23L-0526) — Stage 3 (Deliverable 2 Part B)
+- Muhammad Wahaj (23L-0560)
+- Tayyab Khalid (23L-0501)
+- Fasih-ur-Rehman (23L-0526)
 
 1. GitHub Repository & Deliverable 1 Release:
 - Repository: https://github.com/mwahaj36/subtext-mlops
@@ -68,11 +68,10 @@ Team Members:
 | **Validation calibration & threshold tuning** | **PASSED** | Per-label temperature scaling (`T_j in [0.25, 4.0]`) and threshold grid search (`[0.20, 0.80]`) fit strictly on `val` in [`ml/evaluate.py`](../../ml/evaluate.py), with raw vs. calibrated Brier/ECE reported on both `val` and `course_regression`. |
 | **Selected model registered in MLflow & fresh-process reload verified** | **PASSED** | Registered on DagsHub MLflow Model Registry as `subtext-intent-multilabel` version `2` (`models:/subtext-intent-multilabel/2`, run `f6d50f4c3b9a4fa8ad80c5f58a03b445`) and verified in a fresh subprocess ([`artifacts/registry/registration_summary.json`](../../artifacts/registry/registration_summary.json), [`evidence/d1/mlflow_runs_and_registry.json`](mlflow_runs_and_registry.json)). |
 | **One-command clean-clone reproduction (`docker compose run --rm train`)** | **PASSED** | Verified in a fresh `git clone` inside Linux Docker with no `.env` and no `.dvc/cache`, reproducing identical metrics (`Val Macro-F1 = 0.8770`, `Reg Macro-F1 = 0.8183`); full log in [`evidence/d1/clean_clone_docker_repro.log`](clean_clone_docker_repro.log). |
-| **Stage 1 → Stage 2 & Stage 3 handoff committed** | **PASSED** | [`docs/HANDOFF_D1_TO_D2.md`](../../docs/HANDOFF_D1_TO_D2.md). |
 
 ---
 
-## 3. Submission Checklist for Wahaj
+## 3. Submission Checklist
 
 ### A. Paste These Links
 - **GitHub Repo:** `https://github.com/mwahaj36/subtext-mlops`
@@ -89,9 +88,4 @@ Team Members:
 3. `evidence/d1/dvc_pull_verification.log` (clean-clone `dvc pull` verification log from DagsHub DVC remote)
 4. `evidence/d1/validation_and_negative_checks.log` (automated schema/corruption/leakage/pre-fit halt test log)
 5. `evidence/d1/clean_clone_docker_repro.log` (clean-clone `docker compose run --rm train` execution log)
-
-### C. Remaining Manual Actions for Wahaj (External Portal / Optional Screenshots)
-1. **Classroom Submission:** Paste the ready-to-paste message from Section 1 and attach the files in Section 3.B.
-2. **Optional Browser Screenshots:** If your submission portal specifically requests `.png` screenshots of the MLflow UI in addition to exported logs, open the 3 MLflow UI links in Section 3.A (`experiments/0`, primary run `01b02fc1496548f8b5bd4beb36e6cb99`, and `models/subtext-intent-multilabel`) and attach browser screenshots.
-3. **Grader Token Note:** Include the course DagsHub token in a **private comment** to the instructor/TA on the assignment portal so they can run authenticated `dvc pull` directly (never post tokens publicly).
-4. **Stage 2 Cloud/Provider Activation (Before Tayyab Deploys D2 Step 3):** When Tayyab is ready to deploy Stage 2 to AWS/Vercel, complete the external AWS IAM/ECR/S3, Vercel `subtext-mlops-course`, and capped LLM API key setup listed in [`docs/HANDOFF_D1_TO_D2.md`](../../docs/HANDOFF_D1_TO_D2.md) Section 3.
+6. `evidence/d1/screenshots/02..07_*.png` (DagsHub DVC, MLflow Experiment runs, Baseline Run, Primary MiniLM Run, and Registered Model v2 screenshots)

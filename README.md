@@ -100,8 +100,7 @@ ruff check ml/ tests/ backend/
 
 ---
 
-## 5. Known Limitations & Deliverable 2 Handoff
+## 5. Known Limitations & Evidence Bundle
 
-- **Synthetic Starter Distribution:** Deliverable 1 uses a rubric-curated dataset (`455` queries across `219` groups) grounded in repository movie/people lexicons; live user traffic exhibits noisier spelling, colloquialisms, and out-of-lexicon entities that motivate Deliverable 2's selective LLM fallback and drift monitoring.
-- **Stage 1 → Stage 2/3 Handoff:** See [`docs/HANDOFF_D1_TO_D2.md`](docs/HANDOFF_D1_TO_D2.md) for the complete pinned model inventory, infrastructure configuration, teardown commands, and stage file-ownership boundaries.
+- **Synthetic Starter Distribution:** Deliverable 1 uses a rubric-curated dataset (`455` queries across `219` groups) grounded in repository movie/people lexicons; live user traffic exhibits noisier spelling, colloquialisms, and out-of-lexicon entities that motivate selective LLM fallback and drift monitoring.
 - **Deliverable 1 Evidence Bundle:** See [`evidence/d1/SUBMISSION.md`](evidence/d1/SUBMISSION.md).
