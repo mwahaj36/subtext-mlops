@@ -1,0 +1,36 @@
+FROM python:3.12-slim
+
+ARG IMAGE_DIGEST=local-dev
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    TOKENIZERS_PARALLELISM=false \
+    PYTHONPATH=/app:/app/backend \
+    MODEL_BUNDLE_DIR=/app/artifacts/primary \
+    IMAGE_DIGEST=${IMAGE_DIGEST} \
+    PORT=8000
+
+WORKDIR /app
+
+COPY requirements-serve.txt .
+RUN pip install --no-cache-dir -r requirements-serve.txt
+
+COPY backend ./backend
+COPY ml/__init__.py ml/extract.py ml/evaluate.py ml/validate.py ./ml/
+COPY configs ./configs
+COPY schemas ./schemas
+COPY prompts ./prompts
+COPY artifacts/primary ./artifacts/primary
+COPY artifacts/registry/registration_summary.json ./artifacts/registry/registration_summary.json
+
+RUN useradd --create-home --shell /bin/bash appuser \
+    && chown -R appuser:appuser /app
+
+USER appuser
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=25s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
