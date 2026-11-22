@@ -1,0 +1,32 @@
+version: "1.0.0"
+reference_version: "d1-train-v1"
+reference_record_count: 331
+
+thresholds:
+  min_sample_size: 20
+  cooldown_seconds: 900
+  psi_warning_threshold: 0.15
+  psi_alert_threshold: 0.25
+  label_l1_drift_alert: 0.35
+  llm_escalation_rate_alert: 0.45
+  llm_error_rate_alert: 0.10
+  p95_latency_ms_alert: 1500
+
+reference_distribution:
+  query_length_edges: [0, 35, 55, 75, 100, 501]
+  query_length_proportions: [0.0211, 0.2870, 0.5166, 0.1571, 0.0181]
+  label_prevalence:
+    affective_outcome: 0.1631
+    affective_tone: 0.1782
+    sensory_visual: 0.1934
+    sensory_pacing: 0.1601
+    person_actor: 0.1511
+    person_director: 0.1511
+    similarity_plot: 0.1299
+    similarity_vibe: 0.1480
+    attribute_genre: 0.4713
+    attribute_era: 0.1934
+    attribute_language_country: 0.1873
+    negation_genre: 0.1571
+    negation_content: 0.1722
+    thematic_plot: 0.2024

@@ -1,0 +1,73 @@
+{
+  "title": "Subtext Query Understanding & Serving Observability",
+  "uid": "subtext-serving-d2",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "15s",
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Serving Latency P95 (ms by Component)",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(subtext_request_latency_ms_bucket[5m])) by (le, component))",
+          "legendFormat": "{{component}} p95"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "piechart",
+      "title": "Selected Retrieval Route Distribution",
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum by (route) (subtext_route_selected_total)",
+          "legendFormat": "{{route}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "piechart",
+      "title": "Selective LLM Fallback Status",
+      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum by (status) (subtext_llm_fallback_total)",
+          "legendFormat": "{{status}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "barchart",
+      "title": "Predicted Fine-Grained Intent Counts",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum by (label) (subtext_intent_predictions_total)",
+          "legendFormat": "{{label}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Query Length Distribution (Chars)",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(subtext_query_length_chars_bucket[5m])) by (le))",
+          "legendFormat": "median length"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(subtext_query_length_chars_bucket[5m])) by (le))",
+          "legendFormat": "p95 length"
+        }
+      ]
+    }
+  ]
+}

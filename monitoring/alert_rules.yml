@@ -1,0 +1,43 @@
+groups:
+  - name: subtext_serving_alerts
+    rules:
+      - alert: HighLLMEscalationRate
+        expr: |
+          (
+            sum(rate(subtext_llm_fallback_total{status!="not_called"}[10m]))
+            /
+            clamp_min(sum(rate(subtext_llm_fallback_total[10m])), 0.001)
+          ) > 0.45
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Selective LLM fallback rate exceeded 45%"
+          description: "Elevated low-confidence escalations indicate possible query drift."
+
+      - alert: HighLLMErrorRate
+        expr: |
+          (
+            sum(rate(subtext_llm_fallback_total{status=~"timeout|invalid_output|error"}[10m]))
+            /
+            clamp_min(sum(rate(subtext_llm_fallback_total{status!="not_called"}[10m])), 0.001)
+          ) > 0.10
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "LLM fallback failure/invalid-output rate exceeded 10%"
+          description: "Upstream LLM provider timeouts or contract rejections elevated."
+
+      - alert: HighServingLatencyP95
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(subtext_request_latency_ms_bucket{component="total"}[5m])) by (le)
+          ) > 1500
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Serving P95 latency exceeded 1500ms"
+          description: "Total request latency exceeds SLA threshold."
