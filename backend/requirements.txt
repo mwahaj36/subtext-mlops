@@ -5,6 +5,8 @@ astrapy
 numpy<2.0.0
 spacy==3.7.5
 python-dotenv
+PyYAML>=6.0.0
+jsonschema>=4.20.0
 sentence-transformers
 # Using CPU version of torch to keep the container slim
 --extra-index-url https://download.pytorch.org/whl/cpu

@@ -1,5 +1,7 @@
+from contextlib import asynccontextmanager
+from pydantic import BaseModel
 from fastapi.responses import FileResponse
-from fastapi import FastAPI,Query,Depends,Request
+from fastapi import FastAPI, HTTPException, Query, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
@@ -9,13 +11,15 @@ import os
 import time
 import auth
 
+from course_catalog import search_course_catalog
+from query_understanding import QueryUnderstandingService, detect_unsupported_constraints
 from search import search
+import search_runtime
 import movie
 import sync
 import taste as taste_module
 import query_log
 
-from contextlib import asynccontextmanager
 from database import get_db_connection
 import database
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -25,9 +29,22 @@ from middleware import SecurityHeadersMiddleware, RequestSizeLimitMiddleware
 
 # Rate limiter
 limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
+qu_service = QueryUnderstandingService()
+
+
+def _ensure_service_loaded() -> None:
+    if qu_service.load_error == "Service not initialized":
+        qu_service.load()
+
+
+class PredictRequest(BaseModel):
+    query: str
+    allow_llm_fallback: bool = True
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    qu_service.load()
     # Migration Check
     print("Checking database schema...")
     conn = get_db_connection()
@@ -70,13 +87,16 @@ app=FastAPI(
 app.include_router(auth.router,prefix="/api/v1/sbtxt-auth",tags=["Authentication"])
 app.include_router(sync.router,prefix="/api/v1/sbtxt-sync",tags=["Letterboxd Sync"])
 
+_cors_origins = [
+    o.strip()
+    for o in os.getenv("CORS_ALLOW_ORIGINS", "http://localhost:3000").split(",")
+    if o.strip()
+]
+
 #implement middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://sbtxt.vercel.app",
-        "http://localhost:3000",
-    ],
+    allow_origins=_cors_origins,
     allow_credentials=False,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "x-user-token"],
@@ -133,6 +153,40 @@ def get_optional_user(credentials: Optional[HTTPAuthorizationCredentials] = Depe
     except Exception:
         return None
 
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
+
+
+@app.get("/ready")
+def readiness_check():
+    _ensure_service_loaded()
+    if not qu_service.ready:
+        raise HTTPException(
+            status_code=503,
+            detail={"status": "not_ready", "reason": qu_service.load_error},
+        )
+    return {"status": "ready", **qu_service.version_info()}
+
+
+@app.get("/version")
+def version_check():
+    _ensure_service_loaded()
+    return qu_service.version_info()
+
+
+@app.post("/predict")
+@limiter.limit("60/minute")
+def predict_query_understanding(request: Request, body: PredictRequest):
+    _ensure_service_loaded()
+    try:
+        return qu_service.predict(body.query, allow_llm_fallback=body.allow_llm_fallback)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+
+
 #search page api
 @app.get("/search")
 @limiter.limit("30/minute")
@@ -147,8 +201,11 @@ async def get_movies(
     taste_blend: Optional[float] = None,
     watchlist_only: Optional[bool] = False,
     show_seen: bool = False,
+    include_diagnostics: bool = False,
+    retrieval_mode: str = Query("auto", pattern="^(auto|dense_only|static_hybrid)$"),
     user_id: Optional[str] = Depends(get_optional_user),
 ):
+    _ensure_service_loaded()
     # Fetch taste vector and watched history if personalization requested
     taste_vector = None
     watchlist_ids = None
@@ -185,27 +242,64 @@ async def get_movies(
                 taste_vector = taste_data["vector"]
                 user_top_genres = taste_data.get("top_genres")
     
-    # Discovery mode
     _t0 = time.perf_counter()
-    results = search(
-        q,
-        k=k,
-        min_year=min_year,
-        max_year=max_year,
-        language=language,
-        min_vote=min_vote,
-        taste_vector=taste_vector,
-        taste_blend=1.0 if not q.strip() and taste_vector is not None else taste_blend,
-        watchlist_ids=watchlist_ids,
-        exclude_ids=exclude_ids,
-        user_top_genres=user_top_genres,
-        user_id=user_id
-    )
+    if not q.strip() and taste_vector is None:
+        raise HTTPException(status_code=422, detail="Query cannot be empty or whitespace.")
+
+    unsupported_notices = detect_unsupported_constraints(q) if q.strip() else []
+    prediction = None
+    if q.strip():
+        if qu_service.ready:
+            prediction = qu_service.predict(q)
+        elif retrieval_mode == "auto" or include_diagnostics:
+            raise HTTPException(status_code=503, detail={"status": "not_ready", "reason": qu_service.load_error})
+
+    if search_runtime.collection is None:
+        results, applied_filters = search_course_catalog(
+            q,
+            prediction,
+            k=k,
+            min_year=min_year,
+            max_year=max_year,
+            language=language,
+            min_vote=min_vote,
+            retrieval_mode=retrieval_mode,
+        )
+    else:
+        results = search(
+            q,
+            k=k,
+            min_year=min_year,
+            max_year=max_year,
+            language=language,
+            min_vote=min_vote,
+            taste_vector=taste_vector,
+            taste_blend=1.0 if not q.strip() and taste_vector is not None else taste_blend,
+            watchlist_ids=watchlist_ids,
+            exclude_ids=exclude_ids,
+            user_top_genres=user_top_genres,
+            user_id=user_id,
+        )
+        applied_filters = {
+            "min_year": min_year,
+            "max_year": max_year,
+            "language": language,
+            "min_vote": min_vote,
+        }
+
     query_log.log_search(
         q, results, k=k,
         latency_ms=int((time.perf_counter() - _t0) * 1000),
         has_user=user_id is not None,
     )
+    if include_diagnostics:
+        return {
+            "results": results,
+            "query_understanding": prediction,
+            "applied_filters": applied_filters,
+            "retrieval_mode": retrieval_mode,
+            "unsupported_notices": unsupported_notices,
+        }
     return results
 
 
