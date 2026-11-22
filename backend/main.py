@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 from pydantic import BaseModel
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi import FastAPI, HTTPException, Query, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -12,6 +12,7 @@ import time
 import auth
 
 from course_catalog import search_course_catalog
+from metrics import metrics_registry
 from query_understanding import QueryUnderstandingService, detect_unsupported_constraints
 from search import search
 import search_runtime
@@ -175,15 +176,36 @@ def version_check():
     return qu_service.version_info()
 
 
+@app.get("/metrics")
+def prometheus_metrics():
+    return PlainTextResponse(
+        metrics_registry.render_prometheus(),
+        media_type="text/plain; version=0.0.4; charset=utf-8",
+    )
+
+
 @app.post("/predict")
 @limiter.limit("60/minute")
 def predict_query_understanding(request: Request, body: PredictRequest):
     _ensure_service_loaded()
+    t0 = time.perf_counter()
     try:
-        return qu_service.predict(body.query, allow_llm_fallback=body.allow_llm_fallback)
+        pred = qu_service.predict(body.query, allow_llm_fallback=body.allow_llm_fallback)
+        elapsed_ms = (time.perf_counter() - t0) * 1000.0
+        metrics_registry.record_request("/predict", 200, elapsed_ms)
+        llm_called = bool(pred.get("llm_fallback", {}).get("called"))
+        metrics_registry.record_prediction(
+            query_len=len(body.query),
+            prediction=pred,
+            model_ms=elapsed_ms if not llm_called else min(elapsed_ms, 80.0),
+            llm_ms=max(0.0, elapsed_ms - 80.0) if llm_called else 0.0,
+        )
+        return pred
     except ValueError as exc:
+        metrics_registry.record_request("/predict", 422, (time.perf_counter() - t0) * 1000.0)
         raise HTTPException(status_code=422, detail=str(exc))
     except RuntimeError as exc:
+        metrics_registry.record_request("/predict", 503, (time.perf_counter() - t0) * 1000.0)
         raise HTTPException(status_code=503, detail=str(exc))
 
 
@@ -244,16 +266,21 @@ async def get_movies(
     
     _t0 = time.perf_counter()
     if not q.strip() and taste_vector is None:
+        metrics_registry.record_request("/search", 422, (time.perf_counter() - _t0) * 1000.0)
         raise HTTPException(status_code=422, detail="Query cannot be empty or whitespace.")
 
     unsupported_notices = detect_unsupported_constraints(q) if q.strip() else []
     prediction = None
+    model_t0 = time.perf_counter()
     if q.strip():
         if qu_service.ready:
             prediction = qu_service.predict(q)
         elif retrieval_mode == "auto" or include_diagnostics:
+            metrics_registry.record_request("/search", 503, (time.perf_counter() - _t0) * 1000.0)
             raise HTTPException(status_code=503, detail={"status": "not_ready", "reason": qu_service.load_error})
+    model_ms = (time.perf_counter() - model_t0) * 1000.0
 
+    ret_t0 = time.perf_counter()
     if search_runtime.collection is None:
         results, applied_filters = search_course_catalog(
             q,
@@ -286,10 +313,22 @@ async def get_movies(
             "language": language,
             "min_vote": min_vote,
         }
+    ret_ms = (time.perf_counter() - ret_t0) * 1000.0
+    total_ms = (time.perf_counter() - _t0) * 1000.0
+    metrics_registry.record_request("/search", 200, total_ms)
+    if prediction is not None:
+        llm_called = bool(prediction.get("llm_fallback", {}).get("called"))
+        metrics_registry.record_prediction(
+            query_len=len(q),
+            prediction=prediction,
+            model_ms=model_ms if not llm_called else min(model_ms, 80.0),
+            llm_ms=max(0.0, model_ms - 80.0) if llm_called else 0.0,
+            retrieval_ms=ret_ms,
+        )
 
     query_log.log_search(
         q, results, k=k,
-        latency_ms=int((time.perf_counter() - _t0) * 1000),
+        latency_ms=int(total_ms),
         has_user=user_id is not None,
     )
     if include_diagnostics:
