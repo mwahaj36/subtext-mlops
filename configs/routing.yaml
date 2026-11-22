@@ -33,7 +33,13 @@ routes:
 
 llm_fallback:
   enabled_in_d1: false
-  description: "Selective LLM escalation thresholds tuned on validation during Deliverable 2 serving integration."
+  enabled: true
+  description: "Selective LLM escalation thresholds tuned on validation during serving integration."
+  prompt_version: "1.0.0"
+  timeout_seconds: 3.5
+  max_retries: 1
+  max_tokens: 256
+  use_snapshots_when_unconfigured: true
   max_confidence_margin_for_escalation: 0.15
   escalate_on_empty_predictions: true
   escalate_on_unresolved_compound_negation: true
