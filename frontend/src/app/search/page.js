@@ -20,6 +20,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useSync } from "@/components/SyncProvider";
 import { useRouter } from "next/navigation";
 import { API_URL } from "@/config";
+import QueryDiagnosticsPanel from "@/components/QueryDiagnosticsPanel";
 
 // --- MovieCard Component with Living Poster Effect ---
 const MovieCard = ({ movie, index, onGenreClick }) => {
@@ -27,6 +28,7 @@ const MovieCard = ({ movie, index, onGenreClick }) => {
   const [variants, setVariants] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loadingVariants, setLoadingVariants] = useState(false);
+  const [posterFailed, setPosterFailed] = useState(false);
 
   useEffect(() => {
     let interval;
@@ -42,6 +44,7 @@ const MovieCard = ({ movie, index, onGenreClick }) => {
 
   const handleMouseEnter = async () => {
     setIsHovered(true);
+    if (!movie.poster_path) return;
     if (variants.length === 0 && !loadingVariants) {
       setLoadingVariants(true);
       try {
@@ -63,10 +66,12 @@ const MovieCard = ({ movie, index, onGenreClick }) => {
     }
   };
 
-  const currentPoster =
-    variants.length > 0 && isHovered
+  const hasPoster = Boolean(movie.poster_path) && !posterFailed;
+  const currentPoster = hasPoster
+    ? variants.length > 0 && isHovered
       ? `https://image.tmdb.org/t/p/w500${variants[currentIndex]}`
-      : `https://image.tmdb.org/t/p/w500${movie.poster_path}`;
+      : `https://image.tmdb.org/t/p/w500${movie.poster_path}`
+    : null;
 
   return (
     <motion.div
@@ -82,18 +87,33 @@ const MovieCard = ({ movie, index, onGenreClick }) => {
       className="group cursor-pointer"
     >
       <div className="relative aspect-[2/3] rounded-none overflow-hidden border border-white/10 bg-black/40 transition-all duration-500 group-hover:shadow-[0_0_30px_rgba(255,255,255,0.15)] group-hover:border-white/30">
-        <AnimatePresence mode="wait">
-          <motion.img
-            key={currentPoster}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.8 }}
-            src={currentPoster}
-            alt={movie.title}
-            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-          />
-        </AnimatePresence>
+        {currentPoster ? (
+          <AnimatePresence mode="wait">
+            <motion.img
+              key={currentPoster}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.8 }}
+              src={currentPoster}
+              alt={movie.title}
+              onError={() => setPosterFailed(true)}
+              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+            />
+          </AnimatePresence>
+        ) : (
+          <div className="w-full h-full flex flex-col justify-between p-4 bg-gradient-to-br from-white/[0.08] via-black to-white/[0.03]">
+            <span className="text-[9px] font-black uppercase tracking-widest text-[var(--primary)]">
+              {movie.year}
+            </span>
+            <span className="text-xs font-black uppercase tracking-tight text-white/90 leading-snug">
+              {movie.title}
+            </span>
+            <span className="text-[9px] uppercase tracking-wider text-white/40">
+              {(movie.genres || []).slice(0, 2).join(" • ")}
+            </span>
+          </div>
+        )}
 
         {loadingVariants && isHovered && (
           <div className="absolute top-2 right-2 p-1.5 bg-black/50 backdrop-blur-md rounded-none">
@@ -180,6 +200,13 @@ export default function SearchPage() {
   const [watchlistOnly, setWatchlistOnly] = useState(false);
   const [showSeen, setShowSeen] = useState(false);
   const [tasteEnabled, setTasteEnabled] = useState(false);
+
+  // Query Understanding Diagnostics State
+  const [diagnostics, setDiagnostics] = useState(null);
+  const [appliedFilters, setAppliedFilters] = useState(null);
+  const [unsupportedNotices, setUnsupportedNotices] = useState([]);
+  const [searchError, setSearchError] = useState("");
+  const [retrievalMode, setRetrievalMode] = useState("auto");
 
   const resultOptions = [10, 25, 50, 100];
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
@@ -271,8 +298,19 @@ export default function SearchPage() {
     setIsSearched(false);
     setIsDNASearch(false);
     setMovies([]);
+    setDiagnostics(null);
+    setAppliedFilters(null);
+    setUnsupportedNotices([]);
+    setSearchError("");
     setLoading(false);
     SetQuery("");
+  };
+
+  const handleRetrievalModeChange = (mode) => {
+    setRetrievalMode(mode);
+    if (isSearched && query.trim()) {
+      handleSearch(query, isDNASearch, mode);
+    }
   };
 
   const handleGenreClick = (genre) => {
@@ -293,9 +331,10 @@ export default function SearchPage() {
     handleSearch("", true);
   };
 
-  const handleSearch = async (overrideQuery = null, forYou = false) => {
+  const handleSearch = async (overrideQuery = null, forYou = false, modeOverride = null) => {
     const searchQuery = overrideQuery !== null ? overrideQuery : query;
     if (!searchQuery.trim() && !forYou) return;
+    const activeMode = modeOverride || retrievalMode;
 
     // Abort previous request
     if (abortControllerRef.current) {
@@ -305,8 +344,9 @@ export default function SearchPage() {
 
     setLoading(true);
     setIsSearched(true);
+    setSearchError("");
     try {
-      let url = `/api/search?q=${encodeURIComponent(searchQuery)}`;
+      let url = `/api/search?q=${encodeURIComponent(searchQuery)}&include_diagnostics=true&retrieval_mode=${encodeURIComponent(activeMode)}`;
 
       if (minYear) url += `&min_year=${minYear}`;
       if (maxYear) url += `&max_year=${maxYear}`;
@@ -352,17 +392,21 @@ export default function SearchPage() {
         const errorText = await response.text();
         if (process.env.NODE_ENV === "development")
           console.error("❌ [Search] Backend Error:", errorText);
+        setSearchError(errorText || `Search failed (${response.status})`);
+        setDiagnostics(null);
         setMovies([]);
         return;
       }
 
-      const data = await response.json();
-      if (process.env.NODE_ENV === "development")
-        console.log("✅ [Search] Results received:", data?.length || 0);
+      const rawData = await response.json();
+      const movieList = Array.isArray(rawData) ? rawData : rawData?.results || [];
+      setDiagnostics(Array.isArray(rawData) ? null : rawData?.query_understanding || null);
+      setAppliedFilters(Array.isArray(rawData) ? null : rawData?.applied_filters || null);
+      setUnsupportedNotices(Array.isArray(rawData) ? [] : rawData?.unsupported_notices || []);
 
-      if (token && data && data.length > 0) {
+      if (token && movieList.length > 0) {
         try {
-          const tmdbIds = data.map((m) => m.id);
+          const tmdbIds = movieList.map((m) => m.id);
           const likedRes = await fetch(
             `${API_URL}/api/v1/sbtxt-sync/check_liked`,
             {
@@ -377,7 +421,7 @@ export default function SearchPage() {
 
           if (likedRes.ok) {
             const likedData = await likedRes.json();
-            data.forEach((m) => {
+            movieList.forEach((m) => {
               if (likedData[m.id]) {
                 m.is_liked = true;
               }
@@ -389,7 +433,7 @@ export default function SearchPage() {
         }
       }
 
-      setMovies(data);
+      setMovies(movieList);
     } catch (error) {
       if (error.name === "AbortError") {
         if (process.env.NODE_ENV === "development")
@@ -398,6 +442,7 @@ export default function SearchPage() {
       }
       if (process.env.NODE_ENV === "development")
         console.error("🚨 [Search] Critical Connection Failure:", error);
+      setSearchError(error?.message || "Failed to connect to search service.");
       setMovies([]);
     } finally {
       setLoading(false);
@@ -821,6 +866,17 @@ export default function SearchPage() {
       )}
 
       {/* Vibe Chips removed from here as they are now integrated above */}
+
+      {isSearched && !loading && (
+        <QueryDiagnosticsPanel
+          diagnostics={diagnostics}
+          appliedFilters={appliedFilters}
+          unsupportedNotices={unsupportedNotices}
+          searchError={searchError}
+          retrievalMode={retrievalMode}
+          onRetrievalModeChange={handleRetrievalModeChange}
+        />
+      )}
 
       {isSearched && !loading && (
         <motion.div
