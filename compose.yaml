@@ -9,3 +9,21 @@ services:
       - MLFLOW_TRACKING_PASSWORD=${MLFLOW_TRACKING_PASSWORD:-}
       - DVC_REMOTE_NAME=${DVC_REMOTE_NAME:-origin}
     command: ["python", "-m", "ml.run_pipeline", "--force"]
+
+  serve:
+    build:
+      context: .
+      dockerfile: Dockerfile.serve
+      args:
+        IMAGE_DIGEST: ${IMAGE_DIGEST:-local-dev}
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - IMAGE_DIGEST=${IMAGE_DIGEST:-local-dev}
+      - CORS_ALLOW_ORIGINS=${CORS_ALLOW_ORIGINS:-http://localhost:3000}
+      - LLM_PROVIDER_BASE_URL=${LLM_PROVIDER_BASE_URL:-}
+      - LLM_MODEL_ID=${LLM_MODEL_ID:-}
+      - LLM_API_KEY=${LLM_API_KEY:-}
+    mem_limit: 1536m
+    restart: unless-stopped
