@@ -24,15 +24,13 @@ export async function GET(request) {
     if (process.env.NODE_ENV === "development")
       console.log("📡 Proxying request to:", url);
 
-    // Build headers — include user's JWT if provided for personalization
-    const headers = {
-      Authorization: `Bearer ${hfToken}`,
-    };
-
-    // Forward user's auth token for taste-based personalization
+    // Build headers — include token only when configured
+    const headers = {};
     const userToken = request.headers.get("x-user-token");
     if (userToken) {
       headers["Authorization"] = `Bearer ${userToken}`;
+    } else if (hfToken) {
+      headers["Authorization"] = `Bearer ${hfToken}`;
     }
 
     const response = await fetch(url, {
