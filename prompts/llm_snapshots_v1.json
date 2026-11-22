@@ -1,0 +1,91 @@
+{
+  "snapshot_version": "1.0.0",
+  "prompt_version": "1.0.0",
+  "taxonomy_version": "1.0.0",
+  "entries": {
+    "something mind-bending but not scary": {
+      "predicted_fine_labels": ["thematic_plot", "negation_genre"],
+      "extraction": {
+        "actors": [],
+        "directors": [],
+        "genres": [],
+        "year_min": null,
+        "year_max": null,
+        "language": null,
+        "excluded_genres": ["Horror"],
+        "excluded_terms": [],
+        "reference_titles": []
+      }
+    },
+    "not horror just moody slow burn thriller": {
+      "predicted_fine_labels": ["negation_genre", "affective_tone", "sensory_pacing", "attribute_genre"],
+      "extraction": {
+        "actors": [],
+        "directors": [],
+        "genres": ["Thriller"],
+        "year_min": null,
+        "year_max": null,
+        "language": null,
+        "excluded_genres": ["Horror"],
+        "excluded_terms": [],
+        "reference_titles": []
+      }
+    },
+    "flicks that feel like a rainy neon fever dream without dialogue overload": {
+      "predicted_fine_labels": ["sensory_visual", "affective_tone", "negation_content"],
+      "extraction": {
+        "actors": [],
+        "directors": [],
+        "genres": [],
+        "year_min": null,
+        "year_max": null,
+        "language": null,
+        "excluded_genres": [],
+        "excluded_terms": ["dialogue overload"],
+        "reference_titles": []
+      }
+    },
+    "movies with late night jazz vibe minus slapstick comedy": {
+      "predicted_fine_labels": ["sensory_pacing", "affective_tone", "negation_genre"],
+      "extraction": {
+        "actors": [],
+        "directors": [],
+        "genres": [],
+        "year_min": null,
+        "year_max": null,
+        "language": null,
+        "excluded_genres": ["Comedy"],
+        "excluded_terms": ["slapstick"],
+        "reference_titles": []
+      }
+    },
+    "comforting autumn watch": {
+      "predicted_fine_labels": ["affective_outcome", "affective_tone", "sensory_visual"],
+      "extraction": {
+        "actors": [],
+        "directors": [],
+        "genres": [],
+        "year_min": null,
+        "year_max": null,
+        "language": null,
+        "excluded_genres": [],
+        "excluded_terms": [],
+        "reference_titles": []
+      }
+    },
+    "epic space odyssey vibes without jump scares": {
+      "predicted_fine_labels": ["thematic_plot", "sensory_visual", "negation_content"],
+      "extraction": {
+        "actors": [],
+        "directors": [],
+        "genres": [],
+        "year_min": null,
+        "year_max": null,
+        "language": null,
+        "excluded_genres": [],
+        "excluded_terms": ["jump scares"],
+        "reference_titles": []
+      }
+    }
+  }
+}
