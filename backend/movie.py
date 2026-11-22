@@ -8,12 +8,17 @@ load_dotenv()
 ASTRA_DB_APPLICATION_TOKEN = os.getenv("ASTRA_DB_APPLICATION_TOKEN")
 ASTRA_DB_API_ENDPOINT = os.getenv("ASTRA_DB_API_ENDPOINT")
 
-client = DataAPIClient(ASTRA_DB_APPLICATION_TOKEN)
-db = client.get_database_by_api_endpoint(ASTRA_DB_API_ENDPOINT)
-collection = db.get_collection("movies")
+db = None
+collection = None
+if ASTRA_DB_APPLICATION_TOKEN and ASTRA_DB_API_ENDPOINT:
+    client = DataAPIClient(ASTRA_DB_APPLICATION_TOKEN)
+    db = client.get_database_by_api_endpoint(ASTRA_DB_API_ENDPOINT)
+    collection = db.get_collection("movies")
 
 #return movie info from database
 async def movie_info(movie_id: str):
+    if collection is None:
+        return None
     import asyncio
     doc = await asyncio.to_thread(collection.find_one, {"_id": movie_id})
     if doc:
@@ -32,6 +37,8 @@ async def movie_info(movie_id: str):
 
 #return recommendations
 def get_recommendations(movie:str):
+    if collection is None:
+        return []
     current_movie=collection.find_one({"_id":movie},projection={"$vector": True, "genres": True} )
     if not current_movie or "$vector" not in current_movie:
         return[]
