@@ -1,10 +1,23 @@
 /** @type {import('next').NextConfig} */
 
+const courseApiOrigin = (process.env.NEXT_PUBLIC_API_URL || "")
+  .trim()
+  .replace(/\/+$/, "");
+
 const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
   async headers() {
+    const connectSources = [
+      "'self'",
+      courseApiOrigin,
+      "https://api.themoviedb.org",
+      "http://localhost:*",
+    ]
+      .filter(Boolean)
+      .join(" ");
+
     return [
       {
         source: '/(.*)',
@@ -37,7 +50,7 @@ const nextConfig = {
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
               "img-src 'self' data: blob: https://image.tmdb.org https://api.themoviedb.org https://*.ltrbxd.com https://a.ltrbxd.com https://*.letterboxd.com",
-              "connect-src 'self' https://sbtxt.vercel.app https://*.huggingface.co https://*.hf.space https://api.themoviedb.org http://localhost:*",
+              `connect-src ${connectSources}`,
               "frame-ancestors 'none'",
               "base-uri 'self'",
               "form-action 'self'",
