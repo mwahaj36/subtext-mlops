@@ -1,0 +1,108 @@
+{
+  "completed_utc": "2026-11-22T23:43:06.432382+00:00",
+  "tracking_uri": "https://dagshub.com/mwahaj36/subtext-mlops.mlflow",
+  "drift_batch": "data\\demo_batches\\d2_drift_batch_reviewed.jsonl",
+  "drift_batch_sha256": "89f2ca9b91382ccfbf8cd462dd7a81d7c9a6d8dd57bc24a0aa2e14556a39cb46",
+  "batch_records": 30,
+  "train_records_total": 361,
+  "champion_version": "2",
+  "champion_run_id": "01b02fc1496548f8b5bd4beb36e6cb99",
+  "challenger_version": "3",
+  "challenger_run_id": "18deb0ca31c643c6b5a1a049dfd604b4",
+  "challenger_fingerprint": "46ee6c3817f7b280",
+  "gate_passed": true,
+  "decision": "promote_candidate",
+  "gate_checks": [
+    {
+      "name": "dataset_validation",
+      "passed": true,
+      "observed": "status=passed, splits=passed, leakage=0",
+      "threshold": "status=passed, splits=passed, leakage=0",
+      "detail": "All dataset schema and split-leakage checks passed"
+    },
+    {
+      "name": "val_macro_f1_floor",
+      "passed": true,
+      "observed": "0.8978",
+      "threshold": ">= 0.8000",
+      "detail": "Candidate validation macro-F1 floor"
+    },
+    {
+      "name": "reg_macro_f1_floor",
+      "passed": true,
+      "observed": "0.8594",
+      "threshold": ">= 0.7800",
+      "detail": "Candidate course regression macro-F1 floor"
+    },
+    {
+      "name": "extraction_micro_f1_floor",
+      "passed": true,
+      "observed": "0.9872",
+      "threshold": ">= 0.9500",
+      "detail": "Candidate bounded constraint extraction micro-F1 floor"
+    },
+    {
+      "name": "reg_calibration_ece_cap",
+      "passed": true,
+      "observed": "0.0338",
+      "threshold": "<= 0.0800",
+      "detail": "Candidate course regression ECE calibration bound"
+    },
+    {
+      "name": "champion_reg_macro_f1_delta",
+      "passed": true,
+      "observed": "cand=0.8594 vs champ=0.8183 (drop=-0.0411)",
+      "threshold": "drop <= 0.0200",
+      "detail": "Regression macro-F1 delta vs. pinned champion"
+    },
+    {
+      "name": "negation_slice_f1_delta",
+      "passed": true,
+      "observed": "cand=0.7748 vs champ=0.7080 (drop=-0.0668)",
+      "threshold": "drop <= 0.0300",
+      "detail": "Negation slice micro-F1 regression tolerance"
+    },
+    {
+      "name": "compound_slice_f1_delta",
+      "passed": true,
+      "observed": "cand=0.8389 vs champ=0.8012 (drop=-0.0377)",
+      "threshold": "drop <= 0.0300",
+      "detail": "Compound-query slice micro-F1 regression tolerance"
+    }
+  ],
+  "champion_summary": {
+    "model_type": "minilm_multilabel",
+    "run_id": "01b02fc1496548f8b5bd4beb36e6cb99",
+    "reg_macro_f1": 0.8183,
+    "reg_negation_micro_f1": 0.708,
+    "reg_compound_micro_f1": 0.8012
+  },
+  "challenger_summary": {
+    "model_type": "minilm_multilabel",
+    "run_id": "",
+    "val_macro_f1": 0.8978,
+    "reg_macro_f1": 0.8594,
+    "extraction_micro_f1": 0.9872,
+    "reg_ece": 0.0338,
+    "reg_negation_micro_f1": 0.7748,
+    "reg_compound_micro_f1": 0.8389
+  },
+  "batch_eval_aggregate": {
+    "macro_f1": 1.0,
+    "micro_f1": 1.0,
+    "samples_f1": 1.0,
+    "macro_precision": 1.0,
+    "macro_recall": 1.0,
+    "micro_precision": 1.0,
+    "micro_recall": 1.0,
+    "subset_accuracy": 1.0,
+    "hamming_loss": 0.0,
+    "brier_score": 0.0026,
+    "ece": 0.0241,
+    "uncalibrated_brier_score": 0.0009,
+    "uncalibrated_ece": 0.0175,
+    "extraction_micro_f1": 0.8288,
+    "extraction_micro_precision": 0.8932,
+    "extraction_micro_recall": 0.7731
+  }
+}
