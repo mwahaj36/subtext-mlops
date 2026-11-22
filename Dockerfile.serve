@@ -1,12 +1,13 @@
 FROM python:3.12-slim
 
 ARG IMAGE_DIGEST=local-dev
+ARG BUNDLE_SUBDIR=artifacts/primary
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     TOKENIZERS_PARALLELISM=false \
     PYTHONPATH=/app:/app/backend \
-    MODEL_BUNDLE_DIR=/app/artifacts/primary \
+    MODEL_BUNDLE_DIR=/app/artifacts/bundle \
     IMAGE_DIGEST=${IMAGE_DIGEST} \
     PORT=8000
 
@@ -20,7 +21,7 @@ COPY ml/__init__.py ml/extract.py ml/evaluate.py ml/validate.py ./ml/
 COPY configs ./configs
 COPY schemas ./schemas
 COPY prompts ./prompts
-COPY artifacts/primary ./artifacts/primary
+COPY ${BUNDLE_SUBDIR} ./artifacts/bundle
 COPY artifacts/registry/registration_summary.json ./artifacts/registry/registration_summary.json
 
 RUN useradd --create-home --shell /bin/bash appuser \

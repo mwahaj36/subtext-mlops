@@ -1,0 +1,199 @@
+[
+  {
+    "query_id": "d2_pending_01",
+    "group_id": "d2_pending_grp_01",
+    "text": "trippy midnight Japanese anime vibes no dialogue",
+    "fine_labels": [
+      "sensory_visual",
+      "attribute_language_country",
+      "attribute_genre",
+      "negation_content"
+    ],
+    "broad_labels": [
+      "attribute",
+      "negation",
+      "sensory"
+    ],
+    "is_compound": true,
+    "extraction": {
+      "actors": [],
+      "directors": [],
+      "genres": [
+        "Anime"
+      ],
+      "year_min": null,
+      "year_max": null,
+      "language": "ja",
+      "excluded_genres": [],
+      "excluded_terms": [
+        "dialogue"
+      ],
+      "reference_titles": []
+    },
+    "spans": [],
+    "provenance": {
+      "source": "d2_live_drift_candidate",
+      "collection_batch": "d2_pending_review",
+      "is_synthetic": true,
+      "annotation_method": "production_log_candidate_unreviewed",
+      "reviewed_by": "unassigned",
+      "review_status": "draft",
+      "revision": 1
+    }
+  },
+  {
+    "query_id": "d2_pending_02",
+    "group_id": "d2_pending_grp_02",
+    "text": "short punchy heist film under ninety minutes no gore",
+    "fine_labels": [
+      "sensory_pacing",
+      "thematic_plot",
+      "negation_content"
+    ],
+    "broad_labels": [
+      "negation",
+      "sensory",
+      "thematic"
+    ],
+    "is_compound": true,
+    "extraction": {
+      "actors": [],
+      "directors": [],
+      "genres": [],
+      "year_min": null,
+      "year_max": null,
+      "language": null,
+      "excluded_genres": [],
+      "excluded_terms": [
+        "gore"
+      ],
+      "reference_titles": []
+    },
+    "spans": [],
+    "provenance": {
+      "source": "d2_live_drift_candidate",
+      "collection_batch": "d2_pending_review",
+      "is_synthetic": true,
+      "annotation_method": "production_log_candidate_unreviewed",
+      "reviewed_by": "unassigned",
+      "review_status": "draft",
+      "revision": 1
+    }
+  },
+  {
+    "query_id": "d2_pending_03",
+    "group_id": "d2_pending_grp_03",
+    "text": "comfort watch like Chef to boost mood fast",
+    "fine_labels": [
+      "affective_outcome",
+      "similarity_vibe"
+    ],
+    "broad_labels": [
+      "affective",
+      "similarity"
+    ],
+    "is_compound": true,
+    "extraction": {
+      "actors": [],
+      "directors": [],
+      "genres": [],
+      "year_min": null,
+      "year_max": null,
+      "language": null,
+      "excluded_genres": [],
+      "excluded_terms": [],
+      "reference_titles": [
+        "Chef"
+      ]
+    },
+    "spans": [],
+    "provenance": {
+      "source": "d2_live_drift_candidate",
+      "collection_batch": "d2_pending_review",
+      "is_synthetic": true,
+      "annotation_method": "production_log_candidate_unreviewed",
+      "reviewed_by": "unassigned",
+      "review_status": "draft",
+      "revision": 1
+    }
+  },
+  {
+    "query_id": "d2_pending_04",
+    "group_id": "d2_pending_grp_04",
+    "text": "90s Hong Kong neo-noir kinetic gunplay",
+    "fine_labels": [
+      "attribute_era",
+      "attribute_genre",
+      "sensory_pacing"
+    ],
+    "broad_labels": [
+      "attribute",
+      "sensory"
+    ],
+    "is_compound": true,
+    "extraction": {
+      "actors": [],
+      "directors": [],
+      "genres": [
+        "Noir"
+      ],
+      "year_min": 1990,
+      "year_max": 1999,
+      "language": null,
+      "excluded_genres": [],
+      "excluded_terms": [],
+      "reference_titles": []
+    },
+    "spans": [],
+    "provenance": {
+      "source": "d2_live_drift_candidate",
+      "collection_batch": "d2_pending_review",
+      "is_synthetic": true,
+      "annotation_method": "production_log_candidate_unreviewed",
+      "reviewed_by": "unassigned",
+      "review_status": "draft",
+      "revision": 1
+    }
+  },
+  {
+    "query_id": "d2_pending_05",
+    "group_id": "d2_pending_grp_05",
+    "text": "bleak winter mystery with Willem Dafoe",
+    "fine_labels": [
+      "sensory_visual",
+      "attribute_genre",
+      "person_actor"
+    ],
+    "broad_labels": [
+      "attribute",
+      "person",
+      "sensory"
+    ],
+    "is_compound": true,
+    "extraction": {
+      "actors": [
+        "Willem Dafoe"
+      ],
+      "directors": [],
+      "genres": [
+        "Mystery"
+      ],
+      "year_min": null,
+      "year_max": null,
+      "language": null,
+      "excluded_genres": [],
+      "excluded_terms": [],
+      "reference_titles": []
+    },
+    "spans": [],
+    "provenance": {
+      "source": "d2_live_drift_candidate",
+      "collection_batch": "d2_pending_review",
+      "is_synthetic": true,
+      "annotation_method": "production_log_candidate_unreviewed",
+      "reviewed_by": "unassigned",
+      "review_status": "draft",
+      "revision": 1
+    }
+  }
+]

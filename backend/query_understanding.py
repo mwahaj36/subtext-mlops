@@ -201,6 +201,10 @@ class QueryUnderstandingService:
 
             self.manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
             self.model_id = str(self.manifest["model_type"])
+            if self.manifest.get("registered_version"):
+                self.registered_version = str(self.manifest["registered_version"])
+            if self.manifest.get("bundle_fingerprint"):
+                self.bundle_fingerprint = str(self.manifest["bundle_fingerprint"])
             self.temperatures = {str(k): float(v) for k, v in self.manifest["temperatures"].items()}
             self.thresholds = {str(k): float(v) for k, v in self.manifest["thresholds"].items()}
             self.max_length = int(self.manifest["max_length"])

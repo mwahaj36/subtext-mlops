@@ -1,0 +1,211 @@
+name: Release Promote & Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Release action
+        required: true
+        default: promote
+        type: choice
+        options:
+          - promote
+          - rollback
+      bundle_subdir:
+        description: Model bundle subdir for promote
+        required: false
+        default: artifacts/challenger
+        type: string
+      challenger_run_id:
+        description: Optional MLflow run ID for challenger_bundle download
+        required: false
+        default: ''
+        type: string
+      image_tag:
+        description: ECR image tag for promote build
+        required: false
+        default: d2-v2
+        type: string
+      image_digest:
+        description: Target sha256:... image digest for rollback
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  promote:
+    if: ${{ inputs.action == 'promote' }}
+    runs-on: ubuntu-latest
+    env:
+      MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+      MLFLOW_TRACKING_USERNAME: ${{ secrets.MLFLOW_TRACKING_USERNAME }}
+      MLFLOW_TRACKING_PASSWORD: ${{ secrets.MLFLOW_TRACKING_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install release helpers & fetch model bundle
+        run: |
+          python -m pip install PyYAML==6.0.3 jsonschema==4.26.0 mlflow-skinny==3.18.0 python-dotenv dvc==3.67.1
+          BUNDLE="${{ inputs.bundle_subdir }}"
+          if [ "$BUNDLE" = "artifacts/primary" ]; then
+            python -m dvc remote modify origin --local auth basic
+            python -m dvc remote modify origin --local user "$MLFLOW_TRACKING_USERNAME"
+            python -m dvc remote modify origin --local password "$MLFLOW_TRACKING_PASSWORD"
+            python -m dvc pull artifacts/primary/encoder artifacts/primary/head.pt
+          else
+            python - << 'PY'
+          import json, os, pathlib, shutil, mlflow
+          bundle = pathlib.Path("${{ inputs.bundle_subdir }}")
+          run_id = "${{ inputs.challenger_run_id }}".strip()
+          if not run_id:
+              comp = pathlib.Path("evidence/d2/retrain_comparison.json")
+              if not comp.exists():
+                  raise FileNotFoundError("Missing challenger_run_id and evidence/d2/retrain_comparison.json")
+              run_id = json.loads(comp.read_text(encoding="utf-8"))["challenger_run_id"]
+          mlflow.set_tracking_uri(os.environ["MLFLOW_TRACKING_URI"])
+          dl_root = pathlib.Path("artifacts/_dl")
+          mlflow.artifacts.download_artifacts(run_id=run_id, artifact_path="challenger_bundle", dst_path=str(dl_root))
+          src = dl_root / "challenger_bundle" if (dl_root / "challenger_bundle").exists() else dl_root
+          if bundle.exists():
+              shutil.rmtree(bundle)
+          shutil.copytree(src, bundle)
+          shutil.rmtree(dl_root, ignore_errors=True)
+          print(f"Prepared {bundle} from run_id={run_id}")
+          PY
+          fi
+
+      - name: Run fail-closed evaluation gate before Docker build
+        run: |
+          python -m ml.gate \
+            --champion artifacts/primary/metrics.json \
+            --candidate "${{ inputs.bundle_subdir }}/metrics.json" \
+            --config configs/gates.yaml \
+            --validation-report data/manifests/validation_report.json \
+            --out release_gate_report.json
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build & push digest-pinned serving image
+        id: build
+        env:
+          ECR_REGISTRY: ${{ steps.ecr.outputs.registry }}
+        run: |
+          ECR_REPO="${ECR_REGISTRY}/subtext-mlops-serve"
+          IMAGE_REF="${ECR_REPO}:${{ inputs.image_tag }}"
+          docker build -f Dockerfile.serve \
+            --build-arg "BUNDLE_SUBDIR=${{ inputs.bundle_subdir }}" \
+            --build-arg "IMAGE_DIGEST=${IMAGE_REF}" \
+            -t "$IMAGE_REF" .
+          docker push "$IMAGE_REF"
+          DIGEST=$(aws ecr describe-images \
+            --repository-name subtext-mlops-serve \
+            --image-ids "imageTag=${{ inputs.image_tag }}" \
+            --query 'imageDetails[0].imageDigest' \
+            --output text)
+          echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
+          echo "pinned=${ECR_REPO}@${DIGEST}" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy pinned digest to EC2 and verify health/version/metrics
+        env:
+          PINNED_IMAGE: ${{ steps.build.outputs.pinned }}
+          ECR_REGISTRY: ${{ steps.ecr.outputs.registry }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$EC2_SSH_KEY" | tr -d '\r' > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no "ubuntu@${EC2_HOST}" "bash -s" << EOF
+          set -euo pipefail
+          cd ~/subtext-deploy
+          grep -v '^SERVE_IMAGE=' .env > .env.tmp || true
+          echo "SERVE_IMAGE=${PINNED_IMAGE}" >> .env.tmp
+          mv .env.tmp .env
+          aws ecr get-login-password --region "${AWS_REGION}" | docker login --username AWS --password-stdin "${ECR_REGISTRY}"
+          docker compose -f docker-compose.prod.yml pull serve
+          docker compose -f docker-compose.prod.yml up -d --no-deps serve
+          API_DOMAIN=\$(grep '^API_DOMAIN=' .env | cut -d= -f2-)
+          for i in \$(seq 1 18); do
+            if curl -fsS "https://\${API_DOMAIN}/ready" > /tmp/ready.json 2>/dev/null; then
+              break
+            fi
+            sleep 5
+          done
+          cat /tmp/ready.json && echo ""
+          curl -fsS "https://\${API_DOMAIN}/version" && echo ""
+          curl -fsS "https://\${API_DOMAIN}/metrics" | head -n 20
+          EOF
+          echo "Promoted \`${PINNED_IMAGE}\`" >> "$GITHUB_STEP_SUMMARY"
+
+  rollback:
+    if: ${{ inputs.action == 'rollback' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate rollback digest input
+        run: |
+          echo "${{ inputs.image_digest }}" | grep -qE '^sha256:[a-f0-9]{64}$' || {
+            echo "Invalid image_digest '${{ inputs.image_digest }}'; expected sha256:<64-hex>"
+            exit 1
+          }
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Switch EC2 SERVE_IMAGE to pinned rollback digest and verify
+        env:
+          TARGET_DIGEST: ${{ inputs.image_digest }}
+          ECR_REGISTRY: ${{ steps.ecr.outputs.registry }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+        run: |
+          ECR_REPO="${ECR_REGISTRY}/subtext-mlops-serve"
+          aws ecr describe-images \
+            --repository-name subtext-mlops-serve \
+            --image-ids "imageDigest=${TARGET_DIGEST}" \
+            --query 'imageDetails[0].imageDigest' --output text
+          PINNED_IMAGE="${ECR_REPO}@${TARGET_DIGEST}"
+          mkdir -p ~/.ssh
+          printf '%s\n' "$EC2_SSH_KEY" | tr -d '\r' > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no "ubuntu@${EC2_HOST}" "bash -s" << EOF
+          set -euo pipefail
+          cd ~/subtext-deploy
+          grep -v '^SERVE_IMAGE=' .env > .env.tmp || true
+          echo "SERVE_IMAGE=${PINNED_IMAGE}" >> .env.tmp
+          mv .env.tmp .env
+          aws ecr get-login-password --region "${AWS_REGION}" | docker login --username AWS --password-stdin "${ECR_REGISTRY}"
+          docker compose -f docker-compose.prod.yml pull serve
+          docker compose -f docker-compose.prod.yml up -d --no-deps serve
+          API_DOMAIN=\$(grep '^API_DOMAIN=' .env | cut -d= -f2-)
+          for i in \$(seq 1 18); do
+            if curl -fsS "https://\${API_DOMAIN}/ready" > /tmp/ready.json 2>/dev/null; then
+              break
+            fi
+            sleep 5
+          done
+          cat /tmp/ready.json && echo ""
+          curl -fsS "https://\${API_DOMAIN}/version" && echo ""
+          EOF
+          echo "Rolled back live service to \`${PINNED_IMAGE}\`" >> "$GITHUB_STEP_SUMMARY"
