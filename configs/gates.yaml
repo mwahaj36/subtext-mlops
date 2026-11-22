@@ -2,7 +2,7 @@ version: "1.0.0"
 
 require_validation_passed: true
 min_val_macro_f1: 0.80
-min_reg_macro_f1: 0.78
+min_reg_macro_f1: 0.99
 min_extraction_micro_f1: 0.95
 max_reg_ece: 0.08
 max_regression_macro_f1_drop: 0.02
