@@ -1,0 +1,21 @@
+{
+  "monitoring_version": "1.0.0",
+  "reference_version": "d1-train-v1",
+  "sample_size": 30,
+  "min_sample_size": 20,
+  "metrics": {
+    "query_length_psi": 8.2962,
+    "label_prevalence_l1": 0.181,
+    "llm_escalation_rate": 0.0,
+    "llm_error_rate": 0.0,
+    "p95_latency_ms": 0.0
+  },
+  "alert_triggered": true,
+  "alerts": [
+    "query_length_psi=8.2962 >= 0.25"
+  ],
+  "should_notify": true,
+  "suppressed_reason": null,
+  "webhook_dispatched": false,
+  "retrain_recommended": true
+}
