@@ -104,3 +104,20 @@ ruff check ml/ tests/ backend/
 
 - **Synthetic Starter Distribution:** Deliverable 1 uses a rubric-curated dataset (`455` queries across `219` groups) grounded in repository movie/people lexicons; live user traffic exhibits noisier spelling, colloquialisms, and out-of-lexicon entities that motivate selective LLM fallback and drift monitoring.
 - **Deliverable 1 Evidence Bundle:** See [`evidence/d1/SUBMISSION.md`](evidence/d1/SUBMISSION.md).
+
+---
+
+## 6. Production Serving, Eval-Gated CI/CD, Observability & Closed-Loop Retraining (Deliverable 2)
+
+- **Live Isolated Deployment:**
+  - **Course Search & Diagnostics UI:** `https://subtext-mlops-course.vercel.app/search` (`QueryDiagnosticsPanel.js` showing intent confidences, route selection & rationale, extracted constraints, selective LLM status, retrieval mode selector, and unsupported filter notices).
+  - **Containerized Serving API:** `https://54-210-225-89.sslip.io` (AWS ECR digest-pinned `Dockerfile.serve` on EC2 behind Caddy TLS + isolated Postgres demo DB). Endpoints: `/health`, `/ready`, `/version`, `/predict`, `/search`, `/metrics`.
+- **Eval-Gated CI/CD ([`configs/gates.yaml`](configs/gates.yaml), [`ml/gate.py`](ml/gate.py), [`.github/workflows/ci.yml`](.github/workflows/ci.yml)):**
+  - Every pull request runs backend tests, Next.js build verification, and `ml-gates` enforcing frozen validation/regression floors, calibration ECE, and negation/compound slice tolerances fail-closed before merge or release.
+- **Live Observability & Drift Monitoring ([`backend/metrics.py`](backend/metrics.py), [`configs/monitoring.yaml`](configs/monitoring.yaml), [`monitoring/`](monitoring/)):**
+  - Privacy-safe `/metrics` Prometheus exporter tracks request counts, component latencies, route selection, LLM fallback rates, query length distributions, and confidence margins (no raw query text in labels).
+  - `monitoring/drift_monitor.py` scores incoming batches against the D1 `n=331` training reference using PSI, label L1 shift, LLM escalation/error rates, and P95 latency with min-sample and cooldown guards (`python -m monitoring.drift_monitor --batch data/demo_batches/d2_drift_batch_reviewed.jsonl --out evidence/d2/drift_report.json --html-out evidence/d2/drift_report.html`).
+- **Closed-Loop Retraining, Promotion & Rollback ([`ml/retrain.py`](ml/retrain.py), [`.github/workflows/retrain.yml`](.github/workflows/retrain.yml), [`.github/workflows/release.yml`](.github/workflows/release.yml)):**
+  - Unreviewed/draft queues (`data/demo_batches/unreviewed_queue_sample.json`) fail closed; DVC-tracked reviewed drift batches (`data/demo_batches/d2_drift_batch_reviewed.jsonl.dvc`) combine with D1 `train.jsonl` while preserving frozen `val.jsonl` / `course_regression.jsonl` calibration and evaluation.
+  - Challenger `v3` (`18deb0ca31c643c6b5a1a049dfd604b4`) improved `reg_macro_f1` from `0.8183` to `0.8594` and passed all 8 release gates; `release.yml` provides gated ECR promotion and instant digest-only EC2 rollback.
+- **Deliverable 2 Evidence Bundle:** See [`evidence/d2/SUBMISSION.md`](evidence/d2/SUBMISSION.md).

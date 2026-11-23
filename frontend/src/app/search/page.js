@@ -384,7 +384,7 @@ export default function SearchPage() {
 
       if (response.status === 401) {
         localStorage.removeItem("token");
-        router.push("/auth");
+        setSearchError("Session token cleared. Try searching again.");
         return;
       }
 

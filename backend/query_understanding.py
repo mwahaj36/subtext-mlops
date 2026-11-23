@@ -122,6 +122,7 @@ class QueryUnderstandingService:
         self.label_set: set[str] = set()
         self.fine_to_broad: dict[str, str] = {}
         self.canonical_genres: set[str] = set()
+        self.genre_lookup: dict[str, str] = {}
         self.canonical_languages: set[str] = set()
         self.compound_min = 2
         self.temperatures: dict[str, float] = {}
@@ -164,6 +165,10 @@ class QueryUnderstandingService:
             self.label_set = set(self.label_order)
             self.fine_to_broad = dict(self.taxonomy["fine_to_broad"])
             self.canonical_genres = set(self.taxonomy.get("canonical_genres", []))
+            self.genre_lookup = {g.lower(): g for g in self.canonical_genres}
+            for alias_k, canonical_v in self.taxonomy.get("genre_aliases", {}).items():
+                if canonical_v in self.canonical_genres:
+                    self.genre_lookup[str(alias_k).strip().lower()] = str(canonical_v)
             self.canonical_languages = set(self.taxonomy.get("canonical_languages", {}).keys())
             self.compound_min = int(self.taxonomy["compound_rule"]["min_distinct_broad_categories"])
 
@@ -310,12 +315,21 @@ class QueryUnderstandingService:
             raise ValueError("LLM extraction must be an object")
         self._extraction_validator.validate(extraction)
 
-        for g in list(extraction.get("genres", [])) + list(extraction.get("excluded_genres", [])):
-            if g not in self.canonical_genres:
-                raise ValueError(f"Unsupported genre in LLM extraction: {g!r}")
+        for field in ("genres", "excluded_genres"):
+            normalized_genres: list[str] = []
+            for g in list(extraction.get(field, [])):
+                canon = self.genre_lookup.get(str(g).strip().lower())
+                if canon is None:
+                    raise ValueError(f"Unsupported genre in LLM extraction: {g!r}")
+                if canon not in normalized_genres:
+                    normalized_genres.append(canon)
+            extraction[field] = normalized_genres
         lang = extraction.get("language")
-        if lang is not None and lang not in self.canonical_languages:
-            raise ValueError(f"Unsupported language in LLM extraction: {lang!r}")
+        if lang is not None:
+            lang = str(lang).strip().lower()
+            if lang not in self.canonical_languages:
+                raise ValueError(f"Unsupported language in LLM extraction: {lang!r}")
+            extraction["language"] = lang
         y_min, y_max = extraction.get("year_min"), extraction.get("year_max")
         if y_min is not None and y_max is not None and y_min > y_max:
             raise ValueError("LLM extraction year_min exceeds year_max")

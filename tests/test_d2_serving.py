@@ -210,6 +210,63 @@ def test_llm_failure_modes_fall_back_safely_to_small_model(
     assert len(body["predicted_fine_labels"]) >= 1
 
 
+def test_llm_normalizes_lowercase_genres_and_aliases(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    validator = _load_contract_validator()
+    monkeypatch.setenv("LLM_PROVIDER_BASE_URL", "https://example.invalid/v1")
+    monkeypatch.setenv("LLM_API_KEY", "test-key")
+    monkeypatch.setenv("LLM_MODEL_ID", "test-model")
+
+    payload = json.dumps(
+        {
+            "predicted_fine_labels": ["affective_outcome", "attribute_genre", "negation_genre"],
+            "extraction": {
+                "actors": [],
+                "directors": [],
+                "genres": ["sci-fi", "COMEDY"],
+                "year_min": None,
+                "year_max": None,
+                "language": "EN",
+                "excluded_genres": ["horror", "Horror"],
+                "excluded_terms": [],
+                "reference_titles": [],
+            },
+        }
+    )
+
+    class _Resp:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, Any]:
+            return {"choices": [{"message": {"content": payload}}]}
+
+    class _Client:
+        def __init__(self, *a: Any, **k: Any) -> None:
+            pass
+
+        def __enter__(self) -> _Client:
+            return self
+
+        def __exit__(self, *a: Any) -> None:
+            return None
+
+        def post(self, *a: Any, **k: Any) -> _Resp:
+            return _Resp()
+
+    monkeypatch.setattr("query_understanding.httpx.Client", _Client)
+    resp = client.post("/predict", json={"query": "upbeat sci-fi comedy not scary"})
+    assert resp.status_code == 200
+    body = resp.json()
+    validator.validate(body)
+    assert body["llm_fallback"]["status"] == "succeeded"
+    assert body["extraction"]["genres"] == ["Science Fiction", "Comedy"]
+    assert body["extraction"]["excluded_genres"] == ["Horror"]
+    assert body["extraction"]["language"] == "en"
+
+
 def test_search_with_diagnostics_unsupported_constraints_and_retrieval_modes(
     client: TestClient,
 ) -> None:
